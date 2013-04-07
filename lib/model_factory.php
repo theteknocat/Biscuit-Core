@@ -236,7 +236,7 @@ class ModelFactory {
 		return (int)DB::fetch_one($query);
 	}
 	/**
-	 * Trash the entire table contents and resent the auto-increment value to 1
+	 * Trash the entire table contents and reset the auto-increment value to 1
 	 *
 	 * @return bool
 	 * @author Peter Epp
@@ -327,9 +327,8 @@ class ModelFactory {
 	public function db_table() {
 		if (method_exists($this->_model,"db_tablename")) {
 			return call_user_func(array($this->_model,"db_tablename"));
-		}
-		else {
-			return AkInflector::tableize($this->_model);
+		} else {
+			return AkInflector::tableize(Crumbs::normalized_model_name($this->_model));
 		}
 	}
 }

@@ -22,7 +22,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0
+ * @version 2.1
  */
 
 if (version_compare(PHP_VERSION,"5.2.0","<")) {
@@ -32,12 +32,17 @@ if (version_compare(PHP_VERSION,"5.2.0","<")) {
 Bootstrap::set_start_time();
 
 spl_autoload_register('Bootstrap::core_lib_autoload');
+spl_autoload_register('Bootstrap::extension_auto_load');
+spl_autoload_register('Bootstrap::module_auto_load');
 
 /**
  * Handle configuration, loading, migrations and teardown
  *
  * @package Core
  * @author Peter Epp
+ * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
+ * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
+ * @version 2.1
  */
 class Bootstrap {
 	/**
@@ -96,6 +101,59 @@ class Bootstrap {
 		return false;
 	}
 	/**
+	 * Try to auto load an extension file
+	 *
+	 * @package Core
+	 * @author Peter Epp
+	 */
+	public static function extension_auto_load($class_name) {
+		if (!class_exists('AkInflector',false)) {
+			require_once('lib/ak_inflector.php');
+		}
+		$extension_path = AkInflector::underscore($class_name).'/extension.php';
+		if ($full_file_path = Crumbs::file_exists_in_load_path($extension_path)) {
+			require_once($full_file_path);
+			return true;
+		}
+		return false;
+	}
+	/**
+	 * Try to auto load a module controller file
+	 *
+	 * @package Core
+	 * @author Peter Epp
+	 */
+	public static function module_auto_load($class_name) {
+		if (!class_exists('AkInflector',false)) {
+			require_once('lib/ak_inflector.php');
+		}
+		$module_classname = $class_name;
+		if (substr($module_classname,0,6) == 'Custom') {
+			$module_classname = substr($class_name,6);
+		}
+		if (substr($module_classname,-7) == 'Manager') {
+			$module_classname = substr($module_classname,0,-7);
+		}
+		$module_path    = AkInflector::underscore($module_classname).'/controller.php';
+		if ($full_file_path = Crumbs::file_exists_in_load_path($module_path)) {
+			if (preg_match('/\/customized\//',$full_file_path)) {
+				// If module controller file is a customized one, we need to load the parent controller, so figure out the parent file path and include it
+
+				// Make full path site root relative without preceding slash:
+				$parent_file = substr($full_file_path,strlen(SITE_ROOT)+1);
+				// Remove "customized":
+				$parent_file = preg_replace('/\/customized\//','/',$parent_file);
+				// Get the full path to the parent:
+				$full_parent_file_path = Crumbs::file_exists_in_load_path($parent_file);
+				// Include the parent controller file:
+				require_once $full_parent_file_path;
+			}
+			require_once($full_file_path);
+			return true;
+		}
+		return false;
+	}
+	/**
 	 * Load and configure the framework at different levels:
 	 *
 	 * BOOTSTRAP_MIN - Base configuration only, does not load any modules or extensions, nor run migrations
@@ -107,6 +165,9 @@ class Bootstrap {
 	 * @author Peter Epp
 	 */
 	public static function load($level = self::FULL) {
+		// Set a default timezone to avoid warnings when using date functions prior to setting the timezone base on the site configuration
+		date_default_timezone_set('America/Edmonton');
+		
 		self::$_run_level = $level;
 
 		$host_name = null;
@@ -162,12 +223,19 @@ class Bootstrap {
 
 			Console::log("    Current System Time: ".date("r"));
 
-			Console::log("    Start session");
 		}
 
 		$allow_db_sessions = ($level >= self::BASIC && !$Config->has_critical_errors());
 
+		Console::log("    Start session");
+
 		Session::start($allow_db_sessions);
+
+		Console::log("    Set Locale");
+
+		if (!$Config->has_critical_errors()) {
+			I18n::instance()->set_locale();
+		}
 
 		if ($Config->has_critical_errors()) {
 			trigger_error("Problems with configuration are preventing Biscuit from loading:<br>".$Config->error_output('critical', true),E_USER_ERROR);

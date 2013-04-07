@@ -1,6 +1,4 @@
 <?php
-require_once("image_manipulation.php");
-
 /**
  * Like FileUpload, only with multiple files (so cryptic!)
  *
@@ -21,16 +19,12 @@ class MultiFileUpload {
 	private $files = array();
 
 	/**
-	*
-	* @param array  $files         Required. The file data from the server. normally $_FILES
-	* @param string $upload_dir    Required. File upload directory relative to the web root (ie. "/images/photos").  If the directory doesn't exist, it will be created
-	* @param string $type            Optional. If left blank (default), the file will simply be uploaded to the $upload_dir.
-	* @param string $img_width        If type=image, enter this to override the system-wide global "IMG_WIDTH" for resizing the uploaded image to it's medium/large size
-	* @param string $img_height    If type=image, enter this to override the system-wide global "IMG_HEIGHT" for resizing the uploaded image to it's medium/large size
-	* @param string $thumb_width    If type=image, enter this to override the system-wide global "THUMB_WIDTH" for resizing the uploaded image to it's thumbnail size
-	* @param string $thumb_height    If type=image, enter this to override the system-wide global "THUMB_HEIGHT" for resizing the uploaded image to it's thumbnail size
-	*/
-	public function __construct($files, $upload_dir, $img_width = "",$img_height="",$thumb_width = "", $thumb_height = "") {
+	 *
+	 * @param array  $files         Required. The file data from the server. normally $_FILES
+	 * @param string $upload_dir    Required. File upload directory relative to the web root (ie. "/images/photos").  If the directory doesn't exist, it will be created
+	 * @param bool $overwrite_existing Optional. Whether or not to overwrite existing file. Defaults to false.
+	 */
+	public function __construct($files, $upload_dir, $overwrite_existing = false) {
 		if (!is_array($files)) {
 			trigger_error("Argument error. First argument must be an array", E_USER_ERROR);
 		}
@@ -42,7 +36,7 @@ class MultiFileUpload {
 		for ($i=0; $i < count($files['name']);$i++) {
 			$file_array = $this->data_for_single_file($files, $i); // create an array that looks like a single file upload
 			if (!empty($file_array) && !empty($file_array['name'])) {
-				$this->files[] = new FileUpload($file_array, $upload_dir, $img_width, $img_height, $thumb_width, $thumb_height);
+				$this->files[] = new FileUpload($file_array, $upload_dir, $overwrite_existing);
 			}
 		}
 	}
@@ -240,62 +234,56 @@ class FileUpload {
 	 *
 	 * @param array $uploaded_file	Required. Contains the file data (must resemble $_FILES['foo'])
 	 * @param string $upload_dir	Required. File upload directory relative to the web root (ie. "/images/photos").  If the directory doesn't exist, it will be created
-	 * @param string $type			Optional. If left blank (default), the file will simply be uploaded to the $upload_dir.
-	 * @param string $img_width		If type=image, enter this to override the system-wide global "IMG_WIDTH" for resizing the uploaded image to it's medium/large size
-	 * @param string $img_height	If type=image, enter this to override the system-wide global "IMG_HEIGHT" for resizing the uploaded image to it's medium/large size
-	 * @param string $thumb_width	If type=image, enter this to override the system-wide global "THUMB_WIDTH" for resizing the uploaded image to it's thumbnail size
-	 * @param string $thumb_height	If type=image, enter this to override the system-wide global "THUMB_HEIGHT" for resizing the uploaded image to it's thumbnail size
+	 * @param bool $overwrite_existing Optional. Whether or not to overwrite existing file. Defaults to false.
 	 */
 	public function __construct($uploaded_file, $upload_dir, $overwrite_existing = false) {
 		if (empty($uploaded_file)) {
-			$this->error('No uploaded file found!');
+			$this->error(__("No uploaded file found!"));
 			return;
 		}
 
 		if (is_array($uploaded_file['name'])) {
-			$this->error("FileUpload expects only a single file. Use MultiFileUpload for multiple files", 2);
+			$this->error(__("FileUpload expects only a single file. Use MultiFileUpload for multiple files"), 2);
 			return;
 		}
 
+		$this->uploaded_file = $uploaded_file;
+
 		$this->overwrite_existing = $overwrite_existing;
 
-		$this->set_file_error($uploaded_file);
+		$this->set_file_error($this->uploaded_file);
 
 		if (!$this->is_okay()) {	// errors occurred in upload
 			Console::log("                        Errors occurred with file upload: ".$this->file_error);
 			return;
 		}
 
-		if (empty($uploaded_file['name'])) {
-			$this->error('No filename given');
+		if (empty($this->uploaded_file['name'])) {
+			$this->error(__("No filename given"));
 			return;
 		}		
 
-		if (!is_uploaded_file($uploaded_file['tmp_name'])) {
-			trigger_error("Not an uploaded file. Perhaps the \$_FILES argument is wrong.", E_USER_ERROR);
+		if (!is_uploaded_file($this->uploaded_file['tmp_name'])) {
+			$this->error(__("No file was uploaded"));
+			return;
 		}
 
-		$this->uploaded_file = $uploaded_file;
 		$this->upload_dir = SITE_ROOT.$upload_dir;
-		$this->file_name = $uploaded_file['name'];
+		$this->file_name = $this->uploaded_file['name'];
 		$this->type = "";
-		if ($this->is_valid_image($uploaded_file['tmp_name'])) {
+		if ($this->is_valid_image($this->uploaded_file['tmp_name'])) {
 			$this->type = "image";
 		}
 		$this->ensure_directory_setup();
-		$this->process_uploaded_file($img_width, $img_height, $thumb_width, $thumb_height);
+		$this->process_uploaded_file();
 	}
 	/**
 	 * Process the uploaded file
 	 *
-	 * @param string $img_width 
-	 * @param string $img_height 
-	 * @param string $thumb_width 
-	 * @param string $thumb_height 
 	 * @return void
 	 * @author Peter Epp
 	 */
-	private function process_uploaded_file($img_width, $img_height, $thumb_width, $thumb_height) {
+	private function process_uploaded_file() {
 		Console::log("                        Processing uploaded file: ".$this->uploaded_file['name']);
 
 		$this->clean_filename();
@@ -309,7 +297,7 @@ class FileUpload {
 		if (!move_uploaded_file($this->uploaded_file['tmp_name'], $full_temp_file_path)) {	// Failure to move file to destination folder
 			@unlink($this->uploaded_file['tmp_name']);	// Make sure temp file is deleted
 			// Set error message and status
-			$this->error("Failed to move uploaded file (".$this->file_name.") to destination folder", 2);
+			$this->error(sprintf(__("Failed to move uploaded file (%s) to destination folder"),$this->file_name), 2);
 			return;
 		}
 
@@ -322,51 +310,63 @@ class FileUpload {
 		Console::log("                        File successfully moved to temporary directory for post processing");
 		// Post processing
 		if ($this->type == "image") {
-			$img_width = (($img_width != "") ? $img_width : IMG_WIDTH);
-			$img_height = (($img_height != "") ? $img_height : IMG_HEIGHT);
-			$thumb_width = (($thumb_width != "") ? $thumb_width : THUMB_WIDTH);
-			$thumb_height = (($thumb_height != "") ? $thumb_height : THUMB_HEIGHT);
-
-			if (!$this->is_valid_image($full_temp_file_path)) {
-				@unlink($full_temp_file_path);
-				$this->error("The file is not a valid JPEG, GIF or PNG.",2);
-				return;
-			}
-			// TODO validate against supported image types before processing
-			// TODO add support for gif and png thumbnailing
-			// TODO auto-detect file type
-			Console::log("                        Processing image - resize and make thumbnail");
-			// Resize the image, make a thumbnail, then move them to the destination folders
-			$full_dest_thumb_path = $this->upload_dir."/thumbs/".$this->file_name;
-			if (file_exists($full_dest_file_path)) {		// Over-write existing image. This is just a fail-safe, since it should have a unique filename by this point
-				@unlink($full_dest_file_path);
-				@unlink($full_dest_thumb_path);
-			}
-			// Instatiate the image resize manipulation object, setting the source and desitnation filenames as parameters,
-			// then call the resize script on each image respectively:
-			$fullResize = new ImageResize($full_temp_file_path,$full_dest_file_path);
-			$fullResize->makeResizedImage($img_width,$img_height,RESIZE_ONLY);
-			$thumbResize = new ImageResize($full_temp_file_path,$full_dest_thumb_path);
-			$thumbResize->makeResizedImage($thumb_width,$thumb_height,RESIZE_AND_CROP);
-			// Clear the image objects to free memory:
-			unset($fullResize);
-			unset($thumbResize);
-			@unlink($full_temp_file_path); // Delete the temporary image file.
-			chmod($full_dest_file_path,0644);
-			chmod($full_dest_thumb_path,0644);
+			$this->image_post_process($full_temp_file_path,$full_dest_file_path);
 		}
 		else {
 			Console::log("                        No processing required. Moving file to destination directory...");
 			// Just move the file to destination folder
 			if (!rename($full_temp_file_path,$full_dest_file_path)) {
-				$this->error("Failed to move uploaded file (".$this->file_name.") to destination folder", 2);
+				$this->error(sprintf(__("Failed to move uploaded file (%s) to destination folder"),$this->file_name), 2);
 				return;
 			}
 			if (!chmod($full_dest_file_path,0644)) {
-				$this->error("Failed to change permissions on uploaded file (".$full_dest_file_path.")", 2);
+				$this->error(sprintf(__("Failed to change permissions on uploaded file (%s)."),$full_dest_file_path), 2);
 				return;
 			}
 		}
+	}
+	/**
+	 * Post process uploaded image - auto-rotate, if possible, size large image correctly and make thumbnail
+	 *
+	 * @return void
+	 * @author Peter Epp
+	 */
+	private function image_post_process($full_temp_file_path,$full_dest_file_path) {
+
+		Console::log("                        Processing image - resize and make thumbnail");
+
+		// Resize the image, make a thumbnail, then move them to the destination folders
+		$image = new Image($full_temp_file_path);
+
+		if (!$image->image_is_valid()) {
+			$this->error(sprintf(__("Your uploaded file cannot be processed. %s Please try a different file."),$image->error()), self::UPLOAD_ERROR);
+			return;
+		}
+
+		$full_dest_thumb_path = $this->upload_dir."/_thumbs/_".$this->file_name;
+		if (file_exists($full_dest_file_path)) {		// Over-write existing image. This is just a fail-safe, since it should have a unique filename by this point
+			@unlink($full_dest_file_path);
+			@unlink($full_dest_thumb_path);
+		}
+
+		// Auto-rotate the image based on the exif data, if present:
+		$image->auto_rotate();
+
+		// Resize large image:
+		$image->resize(IMG_WIDTH,IMG_HEIGHT,Image::RESIZE_ONLY,$full_dest_file_path);
+
+		// Make thumbnail:
+		$image->resize(THUMB_WIDTH,THUMB_HEIGHT,Image::RESIZE_AND_CROP,$full_dest_thumb_path);
+
+		// Destroy the image to free memory:
+		$image->destroy();
+
+		unset($image);
+
+		@unlink($full_temp_file_path); // Delete the temporary image file.
+
+		chmod($full_dest_file_path,0644);
+		chmod($full_dest_thumb_path,0644);
 	}
 	/**
 	 * Whether or not an uploaded file is a valid image type for resizing
@@ -413,19 +413,19 @@ class FileUpload {
 				break;
 			case 1:		// Exceeded maximum file size defined in php.ini
 			case 2:		// Exceeded maximum file size defined by "MAX_FILE_SIZE" field in upload form
-				$this->file_error =   'The file exceeds the maximum allowed file size.';
+				$this->file_error =   __("The file exceeds the maximum allowed file size.");
 				break;
 			case 3:
-				$this->file_error =   'The file was only partially uploaded.';
+				$this->file_error =   __("The file was only partially uploaded.");
 				break;
 			case 4:
-				$this->file_error =   'No file was uploaded.';
+				$this->file_error =   __("No file was uploaded.");
 				break;
 			case 6:
-				$this->file_error =   'No temporary folder was available (contact the system administrator!)';
+				$this->file_error =   __("No temporary folder was available (contact the system administrator!)");
 				break;
 			default:
-				$this->file_error =   'A system error occured (contact the system administrator!)';
+				$this->file_error =   __("A system error occurred (contact the system administrator!)");
 				break;
 		}//end switch
 		$this->status = (($this->file_error === false) ? self::UPLOAD_SUCCESS : self::UPLOAD_ERROR);
@@ -458,7 +458,7 @@ class FileUpload {
 	 * @return boolean
 	 */
 	public function no_file_sent() {
-		return !isset($this->uploaded_file) || $this->uploaded_file['error'] == 4;
+		return (!isset($this->uploaded_file) || $this->uploaded_file['error'] == 4 || !is_uploaded_file($this->uploaded_file['tmp_name']));
 	}
 	
 	/**
@@ -472,11 +472,11 @@ class FileUpload {
 	private function ensure_directory_setup() {
 		// Create destination folders if they don't exist:
 		if(!Crumbs::ensure_directory($this->upload_dir)){
-			$this->file_error = 'Upload directory('.$this->upload_dir.') cannot be created or is not writable. Check permissions or create the directory manually.';
+			$this->file_error = sprintf(__("Upload directory (%s) cannot be created or is not writable. Check permissions or create the directory manually."),$this->upload_dir);
 			return;
 		}
-		if($this->type == "image" && !Crumbs::ensure_directory($this->upload_dir."/thumbs")){
-			$this->file_error = 'Thumbnail upload directory('.$this->upload_dir.') cannot be created or is not writable. Check permissions or create the directory manually.';
+		if($this->type == "image" && !Crumbs::ensure_directory($this->upload_dir."/_thumbs")){
+			$this->file_error = sprintf(__("Thumbnail directory (%s/_thumbs) cannot be created or is not writable. Check permissions or create the directory manually."),$this->upload_dir);
 			return;
 		}
 		Console::log("                        Destination directory exists and is writable");
@@ -497,4 +497,3 @@ class FileUpload {
 		return $this->file_name;
 	}
 }
-?>

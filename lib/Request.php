@@ -124,6 +124,15 @@ class Request implements Singleton {
 		return (Request::is_ajax() && Request::type() == 'ping');
 	}
 	/**
+	 * Whether or not the request is an Ajaxy session refresh
+	 *
+	 * @return void
+	 * @author Peter Epp
+	 */
+	public static function is_session_refresh() {
+		return (Request::is_ajax() && Request::type() == 'session_refresh');
+	}
+	/**
 	 * Return the value of query string ($_GET) variable
 	 *
 	 * @return void

@@ -48,6 +48,11 @@ define('LOGGING_LEVEL',3);
 define('DEBUG',true);
 
 /**
+ * Whether or not the debug bar extension is enabled. Disabled by default
+ */
+define('DISABLE_DEBUG_BAR',true);
+
+/**
  * What type of server is this?  Options are:
  *
  * "LOCAL_DEV" - use this for your local development machine

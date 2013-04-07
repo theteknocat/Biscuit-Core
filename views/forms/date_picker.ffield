@@ -1,7 +1,37 @@
-<label for="attr_<?php echo $id ?>"<?php if (!$is_valid) { ?> class="error"<?php } ?>><?php if ($required) { echo '*'; } echo $label ?></label>
-<?php echo $calendar->render_date_field($name,array(
-	"default_date" => $default_value,
-	"field_id" => "attr_".$id,
-	"css_class" => "text".((!$is_valid) ? ' error' : '')
-	));
+<?php
+if ($default_value == '0000-00-00' || $default_value == '0000-00-00 00:00:00') {
+	$default_value = '';
+	$picker_default = date('d-M-Y');
+}
+if (!empty($default_value)) {
+	$default_value = Crumbs::date_format($default_value,'d-M-Y');
+	$picker_default = $default_value;
+}
 ?>
+<label for="attr_<?php echo $id ?>"<?php if (!$is_valid) { ?> class="error"<?php } ?>><?php if ($required) { echo '*'; } echo $label ?>:</label>
+<input type="text" style="width: 100px" class="text<?php if (!$is_valid) { ?> error<?php } ?>" name="<?php echo $name ?>" id="attr_<?php echo $id ?>"<?php if (!empty($size)) { echo ' size="'.$size.'"'; } echo $style; ?> value="<?php echo htmlspecialchars($default_value); ?>">
+<?php
+if (!$required) {
+	?><input type="button" name="clear-date-field-<?php echo $id ?>" id="bttn-clear-field-<?php echo $id ?>" value="Clear"><?php
+}
+?>
+<script type="text/javascript" charset="utf-8">
+	$(document).ready(function() {
+		$('#attr_<?php echo $id ?>').datepicker({
+			defaultDate: '<?php echo $picker_default ?>',
+			dateFormat: 'dd-M-yy',
+			showAnim: 'blind',
+			changeMonth: true,
+			changeYear: true
+		});
+		<?php
+		if (!$required) {
+			?>
+		$('#bttn-clear-field-<?php echo $id ?>').click(function() {
+			$('#attr_<?php echo $id ?>').val('');
+		});
+			<?php
+		}
+		?>
+	});
+</script>

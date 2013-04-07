@@ -1,10 +1,10 @@
 <?php
-	if (!class_exists("Biscuit")) {
-		// Framework is not loaded, so bootstrap it now
-		require_once(dirname(__FILE__)."/../bootstrap.php");
-		Bootstrap::load(Bootstrap::MINIMAL);
-		if ($session_error_output = Session::get("error_output")) {
-			$error_output = $session_error_output;
+	if (!class_exists('Biscuit')) {
+		require_once(dirname(__FILE__).'/../../config/global.php');
+		session_name(SESSION_NAME);
+		session_start();
+		if (!empty($_SESSION['error_output'])) {
+			$error_output = $_SESSION["error_output"];
 		}
 	}
 ?>
@@ -52,7 +52,7 @@
 				<div class="error">
 					<p>We apologize for the inconvenience, but a critical internal error has occurred and the page had to be terminated. The details of the error have been logged, and a system administrator will attend to the issue as soon as possible.</p>
 					<?php
-					if ($error_output['report_sent']) {
+					if (!empty($error_output['report_sent'])) {
 						?><p>A detailed report of the error has been sent to the webmaster, who will address it as soon as possible. We apologize for any inconvenience this may cause, and ask for your understanding while we resolve the problem.</p><?php
 					} else if (!empty($error_output['contact_email'])) {
 						?>
@@ -77,8 +77,7 @@
 	</body>
 </html>
 <?php
-	if (Session::get('error_output')) {
-		Session::unset_var('error_output');
+	if (!empty($_SESSION) && !empty($_SESSION['error_output'])) {
+		unset($_SESSION['error_output']);
 	}
-	Bootstrap::end_program(true);
 ?>

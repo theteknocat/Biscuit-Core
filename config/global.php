@@ -25,11 +25,6 @@ define("INCLUDE_PEAR",false);
 define('USE_DB_SESSIONS',false);
 
 /**
- * Add version number to JS and CSS includes. If you don't want to use version numbers remove this constant.
- */
-define('JS_AND_CSS_VERSION',1);
-
-/**
  * Email address for the web developer.  This will be used to send detailed error reports.  If this constant is not defined, error reports will not be sent.
  */
 define("TECH_EMAIL","yourname@yourdomain.com");

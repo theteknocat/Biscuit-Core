@@ -8,13 +8,28 @@
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
  * @version 2.0
  */
-class ModelForm extends Form {
+class ModelForm {
 	/**
 	 * Prevent public instantiation
 	 *
 	 * @author Peter Epp
 	 */
 	private function __construct() {
+	}
+	/**
+	 * Render a hidden form field containing a model attribute. No view for this as that's really not required.
+	 *
+	 * @param string $model 
+	 * @param string $attribute_name 
+	 * @return string
+	 * @author Peter Epp
+	 */
+	public static function hidden($model,$attribute_name,$value_override = null) {
+		$args = self::args_from_model($model,$attribute_name,'hidden');
+		if (!empty($value_override)) {
+			$args['attr_value'] = $value_override;
+		}
+		return '<input type="hidden" name="'.$args['field_name'].'" value="'.$args['attr_value'].'">';
 	}
 	/**
 	 * Render text field from model
@@ -24,13 +39,13 @@ class ModelForm extends Form {
 	 * @return string
 	 * @author Peter Epp
 	 */
-	public static function text($model,$attribute_name,$instructions = null) {
-		$args = self::args_from_model($model,$attribute_name,'text');
+	public static function text($model,$attribute_name,$instructions = null,$options = array()) {
+		$args = self::args_from_model($model,$attribute_name,'text',$options);
 		$all_args = func_get_args();
 		if (!empty($all_args[3])) {
 			$args['options'] = array_merge($args['options'],$all_args[3]);
 		}
-		$field_code = parent::text($attribute_name,$args['field_name'],$args['attr_label'],H::purify_text($args['attr_value']),$args['is_required'],$args['is_valid'],$args['options']);
+		$field_code = Form::text($attribute_name,$args['field_name'],$args['attr_label'],H::purify_text($args['attr_value']),$args['is_required'],$args['is_valid'],$args['options']);
 		return self::render_complete_field($model,$field_code,$instructions);
 	}
 	/**
@@ -41,13 +56,13 @@ class ModelForm extends Form {
 	 * @return string
 	 * @author Peter Epp
 	 */
-	public static function password($model,$attribute_name,$instructions = null) {
-		$args = self::args_from_model($model,$attribute_name,'text');
+	public static function password($model,$attribute_name,$instructions = null,$options = array()) {
+		$args = self::args_from_model($model,$attribute_name,'text',$options);
 		$all_args = func_get_args();
 		if (!empty($all_args[3])) {
 			$args['options'] = array_merge($args['options'],$all_args[3]);
 		}
-		$field_code = parent::password($attribute_name,$args['field_name'],$args['attr_label'],'',$args['is_required'],$args['is_valid'],$args['options']);
+		$field_code = Form::password($attribute_name,$args['field_name'],$args['attr_label'],'',$args['is_required'],$args['is_valid'],$args['options']);
 		return self::render_complete_field($model,$field_code,$instructions);
 	}
 	/**
@@ -61,14 +76,19 @@ class ModelForm extends Form {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	public static function textarea($model, $attribute_name, $allow_html = false, $allowed_html = null, $instructions = null) {
-		$args = self::args_from_model($model,$attribute_name,'textarea');
+	public static function textarea($model, $attribute_name, $allow_html = false, $allowed_html = null, $instructions = null,$options = array()) {
+		$args = self::args_from_model($model,$attribute_name,'textarea',$options);
 		if ($allow_html) {
-			$purify_filters = array();
-			if (!empty($allowed_html)) {
-				$purify_filters['allowed'] = $allowed_html;
+			if ($allowed_html == 'all') {
+				// Allow ALL HTML without any purification
+				$purified_value = $args['attr_value'];
+			} else {
+				$purify_filters = array();
+				if (!empty($allowed_html)) {
+					$purify_filters['allowed'] = $allowed_html;
+				}
+				$purified_value = H::purify_html($args['attr_value'],$purify_filters);
 			}
-			$purified_value = H::purify_html($args['attr_value'],$purify_filters);
 		} else {
 			$purified_value = H::purify_text($args['attr_value']);
 		}
@@ -76,7 +96,7 @@ class ModelForm extends Form {
 		if (!empty($all_args[5])) {
 			$args['options'] = array_merge($args['options'],$all_args[5]);
 		}
-		$field_code = parent::textarea($attribute_name,$args['field_name'],$args['attr_label'],$purified_value,10,$args['is_required'],$args['is_valid'],$args['options']);
+		$field_code = Form::textarea($attribute_name,$args['field_name'],$args['attr_label'],$purified_value,10,$args['is_required'],$args['is_valid'],$args['options']);
 		return self::render_complete_field($model,$field_code,$instructions);
 	}
 	/**
@@ -89,9 +109,9 @@ class ModelForm extends Form {
 	 * @return string
 	 * @author Peter Epp
 	 */
-	public static function select($data_set,$model,$attribute_name,$instructions = null) {
-		$args = self::args_from_model($model,$attribute_name,'select');
-		$field_code = parent::select($data_set,$attribute_name,$args['field_name'],$args['attr_label'],$args['attr_value'],$args['is_required'],$args['is_valid']);
+	public static function select($data_set,$model,$attribute_name,$instructions = null,$options = array()) {
+		$args = self::args_from_model($model,$attribute_name,'select',$options);
+		$field_code = Form::select($data_set,$attribute_name,$args['field_name'],$args['attr_label'],$args['attr_value'],$args['is_required'],$args['is_valid'],$args['options']);
 		return self::render_complete_field($model,$field_code, $instructions);
 	}
 	/**
@@ -104,9 +124,9 @@ class ModelForm extends Form {
 	 * @return string
 	 * @author Peter Epp
 	 */
-	public static function select_multiple($data_set,$model,$attribute_name,$height,$instructions = null) {
-		$args = self::args_from_model($model,$attribute_name,'multi-select');
-		$field_code = parent::select_multiple($data_set,$attribute_name,$args['field_name'],$args['attr_label'],$args['attr_value'],$height,$args['is_required'],$args['is_valid']);
+	public static function select_multiple($data_set,$model,$attribute_name,$height,$instructions = null,$options = array()) {
+		$args = self::args_from_model($model,$attribute_name,'multi-select',$options);
+		$field_code = Form::select_multiple($data_set,$attribute_name,$args['field_name'],$args['attr_label'],$args['attr_value'],$height,$args['is_required'],$args['is_valid'],$args['options']);
 		return self::render_complete_field($model,$field_code, $instructions);
 	}
 	/**
@@ -119,9 +139,9 @@ class ModelForm extends Form {
 	 * @return string
 	 * @author Peter Epp
 	 */
-	public static function radios($data_set,$model,$attribute_name,$instructions = null) {
-		$args = self::args_from_model($model,$attribute_name,'radios');
-		$field_code = parent::radios($data_set,$attribute_name,$args['field_name'],$args['attr_label'],$args['attr_value'],$args['is_required'],$args['is_valid']);
+	public static function radios($data_set,$model,$attribute_name,$instructions = null,$options = array()) {
+		$args = self::args_from_model($model,$attribute_name,'radios',$options);
+		$field_code = Form::radios($data_set,$attribute_name,$args['field_name'],$args['attr_label'],$args['attr_value'],$args['is_required'],$args['is_valid'],$args['options']);
 		return self::render_complete_field($model,$field_code,$instructions);
 	}
 	/**
@@ -135,9 +155,9 @@ class ModelForm extends Form {
 	 * @return string
 	 * @author Peter Epp
 	 */
-	public static function checkbox($checked_value, $unchecked_value, $model, $attribute_name, $instructions = null) {
-		$args = self::args_from_model($model,$attribute_name,'checkbox');
-		$field_code = parent::checkbox($checked_value, $attribute_name, $args['field_name'], $args['attr_label'], $args['attr_value'], $unchecked_value, $args['is_required'], $args['is_valid']);
+	public static function checkbox($checked_value, $unchecked_value, $model, $attribute_name, $instructions = null,$options = array()) {
+		$args = self::args_from_model($model,$attribute_name,'checkbox',$options);
+		$field_code = Form::checkbox($checked_value, $attribute_name, $args['field_name'], $args['attr_label'], $args['attr_value'], $unchecked_value, $args['is_required'], $args['is_valid'], $args['options']);
 		return self::render_complete_field($model,$field_code, $instructions);
 	}
 	/**
@@ -150,9 +170,9 @@ class ModelForm extends Form {
 	 * @return string
 	 * @author Peter Epp
 	 */
-	public static function checkbox_multiple($data_set,$model,$attribute_name,$instructions = null) {
-		$args = self::args_from_model($model,$attribute_name,'multi-checkbox');
-		$field_code = parent::checkbox_multiple($data_set,$attribute_name,$args['field_name'],$args['attr_label'],$args['attr_value'],$args['is_required'],$args['is_valid']);
+	public static function checkbox_multiple($data_set,$model,$attribute_name,$instructions = null,$options = array()) {
+		$args = self::args_from_model($model,$attribute_name,'multi-checkbox',$options);
+		$field_code = Form::checkbox_multiple($data_set,$attribute_name,$args['field_name'],$args['attr_label'],$args['attr_value'],$args['is_required'],$args['is_valid'],$args['options']);
 		return self::render_complete_field($model,$field_code,$instructions);
 	}
 	/**
@@ -164,11 +184,28 @@ class ModelForm extends Form {
 	 * @return string
 	 * @author Peter Epp
 	 */
-	public static function file($model,$attribute_name,$instructions = null) {
-		$args = self::args_from_model($model,$attribute_name,'file');
+	public static function file($model,$attribute_name,$instructions = null,$options = array()) {
+		$args = self::args_from_model($model,$attribute_name,'file',$options);
+		$args['field_name'] = $attribute_name.'_file';
 		$finfo = $model->file_info($attribute_name);
-		$field_code = parent::file($attribute_name,$args['field_name'],$args['attr_label'],$finfo,$args['is_required'],$args['is_valid']);
+		$field_code = Form::file($attribute_name,$args['field_name'],$args['attr_label'],$finfo,$args['is_required'],$args['is_valid'],$args['options']);
 		return self::render_complete_field($model,$field_code,$instructions);
+	}
+	/**
+	 * Render managed file select field from model
+	 *
+	 * @param string $model 
+	 * @param string $attribute_name 
+	 * @param string $tiny_mce 
+	 * @param string $instructions 
+	 * @return void
+	 * @author Peter Epp
+	 */
+	public static function managed_file($model,$attribute_name,$tiny_mce,$media_type,$instructions = null,$options = array()) {
+		$args = self::args_from_model($model,$attribute_name,'managed-file',$options);
+		$args['options']['instructions'] = $instructions;
+		$field_code = Form::managed_file($attribute_name,$args['field_name'],$args['attr_label'],H::purify_text($args['attr_value']),$args['is_required'],$args['is_valid'],$tiny_mce,$media_type,$args['options']);
+		return self::render_complete_field($model,$field_code);
 	}
 	/**
 	 * Render date picker from model. Requires Calendar module to be installed on the page calling this method.
@@ -179,10 +216,9 @@ class ModelForm extends Form {
 	 * @return string
 	 * @author Peter Epp
 	 */
-	public static function date_picker($model,$attribute_name,$instructions = null) {
-		$calendar_obj = Biscuit::instance()->ModuleCalendar();
-		$args = self::args_from_model($model,$attribute_name,'date-picker');
-		$field_code = parent::date_picker($attribute_name,$args['field_name'],$args['attr_label'],$args['attr_value'],$calendar_obj,$args['is_required'],$args['is_valid']);
+	public static function date_picker($model,$attribute_name,$instructions = null,$options = array()) {
+		$args = self::args_from_model($model,$attribute_name,'date-picker',$options);
+		$field_code = Form::date_picker($attribute_name,$args['field_name'],$args['attr_label'],$args['attr_value'],$args['is_required'],$args['is_valid'],$args['options']);
 		return self::render_complete_field($model,$field_code,$instructions);
 	}
 	/**
@@ -217,8 +253,9 @@ HTML;
 	 * @return array
 	 * @author Peter Epp
 	 */
-	private static function args_from_model($model,$attribute_name,$field_type) {
-		$data_name = AkInflector::underscore(AkInflector::singularize(get_class($model)));
+	private static function args_from_model($model,$attribute_name,$field_type,$options = array()) {
+		$model_class = Crumbs::normalized_model_name($model);
+		$data_name = AkInflector::underscore(AkInflector::singularize($model_class));
 		$args['field_name']  = $data_name.'['.$attribute_name.']';
 		$args['attr_value']  = call_user_func(array($model,$attribute_name));
 		$args['attr_label']  = call_user_func(array($model,$attribute_name."_label"));
@@ -240,6 +277,7 @@ HTML;
 				}
 				break;
 		}
+		$args['options'] = array_merge($args['options'],$options);
 		return $args;
 	}
 }

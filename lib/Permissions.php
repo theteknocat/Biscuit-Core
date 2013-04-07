@@ -118,13 +118,14 @@ class Permissions {
 		// We therefore defer to the module to find out if the user can perform the action, which in normal cases will call the abstract user_can() method which defers
 		// to the self::user_can() method.  In special cases the module can perform whatever special logic it needs, as well as deferring to self::user_can() if
 		// applicable.
-		$can_execute = $module->user_can($action);
+		$permission_method = "user_can_".$action;
+		$can_execute = $module->$permission_method();
 		if ($can_execute) {
 			if (method_exists($module, 'before_filter')) {
 				Console::log("                        Calling before_filter");
 				$can_execute = $module->before_filter();
 				if (!$can_execute) {
-					Session::flash("user_error","Missing data needed for the ".$action." action");
+					Session::flash("user_error",sprintf(__("Missing data needed for the %s action"),$action));
 					Console::log("                        Permissions: before_filter for ".get_class($module)." returned false");
 				}
 			}

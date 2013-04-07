@@ -11,6 +11,10 @@ require_once('lib/vendor/FirePHPCore/fb.php');
  **/
 class Console {
 	/**
+	 * Constant with value of true to use in arguments when logging for semantic purposes
+	 */
+	const FORCE_LOG = true;
+	/**
 	 * List of error type names indexed by error code
 	 *
 	 * @var array
@@ -54,15 +58,16 @@ class Console {
 	 * @author Peter Epp
 	 **/
 	public static function set_err_level() {
-		if (LOGGING_LEVEL >= 3) {
-			// Development - log everything
-			error_reporting(E_ALL);
-		}
-		elseif (LOGGING_LEVEL == 2) {
-			// Test - log everything except warnings
-			error_reporting(E_ALL ^ E_WARNING);
-		}
-		else {
+		if (LOGGING_LEVEL > 3) {
+			// Log EVERYTHING
+			error_reporting(E_ERROR | E_WARNING | E_NOTICE | E_PARSE | E_STRICT | E_DEPRECATED);
+		} else if (LOGGING_LEVEL == 3) {
+			// Skip strict standards and deprecated
+			error_reporting(E_ERROR | E_WARNING | E_NOTICE | E_PARSE);
+		} else if (LOGGING_LEVEL == 2) {
+			// Notices but no warnings
+			error_reporting(E_ERROR | E_NOTICE | E_PARSE);
+		} else {
 			// Log errors only
 			error_reporting(E_ERROR);
 		}
@@ -388,10 +393,9 @@ HTML;
 			echo '<script language="javascript" type="text/javascript">top.location.href="/error500";</script>';
 		}
 		else {
-			$content = Crumbs::capture_include("views/error500.php",array('error_output' => $error_output));
 			Response::http_status(500);
 			Response::send_headers();
-			echo $content;
+			include('views/error500.php');
 		}
 		Bootstrap::end_program();
 	}
@@ -408,7 +412,7 @@ HTML;
 			$recipient = TECH_EMAIL;
 		}
 		else {
-			Console::log("\nError report could not be sent because no tech email address is defined.\n",true,'error');
+			Console::log_error("Error report could not be sent because no tech email address is defined.",true);
 			return false;
 		}
 		$from_email = "noreply@".Request::header("Host");
@@ -426,11 +430,11 @@ HTML;
 		$mail = new Mailer();
 		$result = $mail->send_mail("views/email/error_report",$options,$message_vars);
 		if (!$result) {
-			Console::log("\nError report failed to send: ".$result."\n",true,'error');
+			Console::log("Error report failed to send: ".$result);
 			return false;
 		}
 		else {
-			Console::log("\nError report sent to ".$recipient."\n",true,'error');
+			Console::log("Error report sent to ".$recipient);
 			return true;
 		}
 	}
@@ -450,7 +454,7 @@ HTML;
 	 * @return void
 	 * @author Peter Epp
 	 **/
-	function error_handler($errno,$errstr,$errfile,$errline,$errcontext) {
+	public static function error_handler($errno,$errstr,$errfile,$errline,$errcontext) {
 		$is_notice = ($errno == 2048 || $errno == E_STRICT || $errno == E_NOTICE || $errno == E_USER_NOTICE);
 		// Filter out warnings and notices from lagging unless logging level is 4
 		$allow_notice = ($is_notice && defined("LOGGING_LEVEL") && LOGGING_LEVEL > 3);

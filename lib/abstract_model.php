@@ -34,6 +34,12 @@ class AbstractModel extends EventObserver {
 	 */
 	protected $_attributes_with_uploads = array();
 	/**
+	 * Attributes that use the file manager to link to a file
+	 *
+	 * @var string
+	 */
+	protected $_file_managed_attributes = array();
+	/**
 	 * List of attributes that cannot be empty (for validation)
 	 *
 	 * @var array
@@ -70,6 +76,13 @@ class AbstractModel extends EventObserver {
 	 */
 	protected $_associated_attributes = array();
 	/**
+	 * Ignore captcha when validating if otherwise required. Defaults to false. Useful in cases where another model might need to save
+	 * during a post request that normally requires a captcha that should not fail validation as a result of the captcha not correctly submitted
+	 *
+	 * @var bool
+	 */
+	protected $_ignore_captcha = false;
+	/**
 	* Constructor for the AbstractModel class
 	*
 	* @param $attributes (array)  an associative array of attributes
@@ -88,7 +101,9 @@ class AbstractModel extends EventObserver {
 	 * @author Peter Epp
 	 */
 	public function friendly_slug() {
-		if (method_exists($this,'slug_attribute')) {
+		if (method_exists($this,'friendly_slug_value')) {
+			$slug_value = $this->friendly_slug_value();
+		} else if (method_exists($this,'slug_attribute')) {
 			$slug_value = $this->_get_attribute($this->slug_attribute());
 		} else {
 			if ($this->_has_attribute('title')) {
@@ -169,39 +184,44 @@ class AbstractModel extends EventObserver {
 			// therefore need a way to catch that, so this is my workaround
 			throw new ModuleException("An attempt was made to call ".get_class($this)."::".$method_name.", which exists on the object, but PHP deferred to the magic __call() method. You probably defined the method as private or protected but tried to call it outside the context of the ".get_class($this)." object instance.");
 		}
-		if (isset($args[0])) {
-			$attr_value = $args[0];
+		if ($this->_has_attribute($method_name)) {
+			return $this->_get_attribute($method_name);
 		} else {
-			$attr_value = null;
-		}
-		$allowed_methods = array(
-			'_is_required',
-			'_is_valid',
-			'_label',
-			'_field_type',
-			'_field_default',
-			'set_'
-		);
-		foreach ($allowed_methods as $allowed_method) {
-			if (preg_match('/^'.$allowed_method.'/',$method_name) || preg_match('/'.$allowed_method.'$/', $method_name)) {
-				if (substr($allowed_method,0,1) == '_') {	// Begins with an underscore, assume method name is suffixed
-					$attr_name = substr($method_name, 0, -strlen($allowed_method));
-					$method_name = '_attr'.substr($method_name, -strlen($allowed_method));
-					break;
-				} else if (substr($allowed_method,-1) == '_') {	// Ends with an underscore, assume method name is prefixed
-					$attr_name = substr($method_name, strlen($allowed_method));
-					$method_name = '_'.substr($method_name, 0, strlen($allowed_method)).'attribute';
-					break;
+			if (isset($args[0])) {
+				$attr_value = $args[0];
+			} else {
+				$attr_value = null;
+			}
+			$allowed_methods = array(
+				'set_',
+				'has_',
+				'_is_required',
+				'_is_valid',
+				'_label',
+				'_field_type',
+				'_field_default'
+			);
+			foreach ($allowed_methods as $allowed_method) {
+				if (preg_match('/^'.$allowed_method.'/',$method_name) || preg_match('/'.$allowed_method.'$/', $method_name)) {
+					if (substr($allowed_method,0,1) == '_') {	// Begins with an underscore, assume method name is suffixed
+						$attr_name = substr($method_name, 0, -strlen($allowed_method));
+						$method_name = '_attr'.substr($method_name, -strlen($allowed_method));
+						break;
+					} else if (substr($allowed_method,-1) == '_') {	// Ends with an underscore, assume method name is prefixed
+						$attr_name = substr($method_name, strlen($allowed_method));
+						$method_name = '_'.substr($method_name, 0, strlen($allowed_method)).'attribute';
+						break;
+					}
 				}
 			}
-		}
-		if (empty($attr_name)) {
-			return $this->_get_attribute($method_name);
-		} else if (method_exists($this,$method_name)) {
-			return $this->$method_name($attr_name, $attr_value);
+			if ($method_name == '_has_attribute') {
+				return $this->_has_attribute($attr_name);
+			} else if ($this->_has_attribute($attr_name) && method_exists($this,$method_name)) {
+				return $this->$method_name($attr_name, $attr_value);
+			}
 		}
 		// Throw an exception if we couldn't find the appropriate method to call
-		throw new ModuleException("Undefined method: ".get_class($this)."::".$method_name);
+		throw new ModuleException("Cannot call method: ".get_class($this)."::".$method_name."('".$attr_name."')");
 	}
 	/**
 	 * Whether or not an attribute is required. First checks against the database descriptor, then against _required_attributes array to allow overriding the database.
@@ -234,13 +254,19 @@ class AbstractModel extends EventObserver {
 			if ($attr_name == 'id' && $this->is_new()) {
 				return true;
 			} else {
-				if ($this->_attr_has_upload($attr_name)) {
-					if ($this->is_new() && ((Request::is_ajax() && !$this->user_input($attr_name.'_file')) || (!Request::is_ajax() && !Request::files($attr_name.'_file')))) {
+				if ($this->_attr_has_upload($attr_name) && $this->is_new()) {
+					if (Request::is_ajax() && !$this->user_input($attr_name.'_file')) {
+						// On Ajax requests we just see if the filename value has been submitted
 						return false;
+					} else if (!Request::is_ajax()) {
+						// On normal submission we can check if the file was actually uploaded
+						$uploaded_file = Request::files($attr_name.'_file');
+						if (empty($uploaded_file) || !is_uploaded_file($uploaded_file['tmp_name'])) {
+							return false;
+						}
 					}
-				} else if ($attr_name == 'email' || $attr_name == 'email_address') {
-					// If attribute is named something that's obviously an email address do valid email check. That way a custom validation method is
-					// only required if an email field is named something different
+				} else if (stristr($attr_name,'email')) {
+					// If attribute is named something that contains "email" do valid email check
 					return Crumbs::valid_email($this->$attr_name());
 				} else if ($this->$attr_name() === null) {
 					// Special consideration needs to be taken for date fields that have default db values of all zeros
@@ -263,6 +289,16 @@ class AbstractModel extends EventObserver {
 	 */
 	private function _attr_has_upload($attr_name) {
 		return in_array($attr_name,$this->_attributes_with_uploads);
+	}
+	/**
+	 * Whether or not an attribute is a reference to a file from the file manager
+	 *
+	 * @param string $attr_name 
+	 * @return bool
+	 * @author Peter Epp
+	 */
+	private function _attr_has_managed_file($attr_name) {
+		return in_array($attr_name,$this->_file_managed_attributes);
 	}
 	/**
 	 * Return the label for an attribute name
@@ -333,18 +369,12 @@ class AbstractModel extends EventObserver {
 		foreach ($all_attributes as $attr_name => $attr_value) {
 			$validation_method = $attr_name.'_is_valid';
 			if (!$this->$validation_method($attr_name)) {
-				if ($this->_attr_has_upload($attr_name)) {
-					$this->set_error($attr_name,"Select a file to upload for ".$this->_attr_label($attr_name));
-				} else if ($attr_name == 'email' || $attr_name == 'email_address') {
-					$this->set_error($attr_name,"Provide a valid email address");
-				} else {
-					$this->set_error($attr_name,"Provide a value for ".$this->_attr_label($attr_name));
-				}
+				$this->set_error($attr_name);
 			}
 		}
-		if ($this->user_input('captcha_required') == 1) {
-			if (!Captcha::matches($this->user_input('captcha_code'))) {
-				$this->set_error("captcha_code","Provide the correct security code shown in the image. If you cannot read the code, please click the link next to it for a new one.");
+		if ($this->user_input('captcha_required') == 1 && !$this->_ignore_captcha) {
+			if (!Captcha::matches($this->user_input('security_code'))) {
+				$this->set_error("security_code",__("Provide the correct security code shown in the image. If you cannot read the code, please click the link next to it for a new one."));
 			}
 		}
 		$is_valid = (!$this->errors());
@@ -422,6 +452,9 @@ class AbstractModel extends EventObserver {
 		if (!empty($attribute_values)) {
 			foreach ($attribute_values as $attr_name => $value) {
 				$set_method = 'set_'.$attr_name;
+				if (is_string($value)) {
+					$value = trim($value);
+				}
 				$this->$set_method($value);
 			}
 		}
@@ -694,12 +727,17 @@ class AbstractModel extends EventObserver {
 				if (!empty($old_filename)) {
 					Console::log("                        Deleting old file: ".$old_filename);
 					@unlink(SITE_ROOT.$upload_path."/".$old_filename);
+					// Check to see if a thumbnail exists (in case it was an image file)
+					$thumb_path = SITE_ROOT.$upload_path."/_thumbs/_".$old_filename;
+					if (file_exists($thumb_path)) {
+						@unlink($thumb_path);
+					}
 				}
 				$this->$set_attribute($uploaded_file->file_name());
 			} elseif ($uploaded_file->no_file_sent()) {
 				Console::log("                        No file uploaded, chill"); // let validation catch the error, if one exists
 			} else {
-				$this->set_error($attribute_name,"File upload failed: ". $uploaded_file->get_error_message());
+				$this->set_error($attribute_name,sprintf(__("File upload failed: %s"),$uploaded_file->get_error_message()));
 			}
 		}
 		else {
@@ -715,9 +753,9 @@ class AbstractModel extends EventObserver {
 	public function delete() {
 		$db_table = $this->_db_table();
 		$id = $this->id();
-		if (DB::query("DELETE FROM `{$db_table}` WHERE `id` = ?", array($id))) {
+		if ($this->_delete_uploaded_files()) {
 			$this->_record_updated_date();
-			return $this->_delete_uploaded_files();
+			return DB::query("DELETE FROM `{$db_table}` WHERE `id` = ?", array($id));
 		}
 		return false;
 	}
@@ -751,13 +789,23 @@ class AbstractModel extends EventObserver {
 	 */
 	protected function _remove_file($attribute_name) {
 		Console::log("                        Deleting ".$attribute_name." file...");
-		if (@unlink(SITE_ROOT.$this->upload_path($attribute_name).'/'.$this->$attribute_name())) {
-			$this->$attribute_setter('');
+		$full_file_path = SITE_ROOT.$this->upload_path($attribute_name).'/'.$this->$attribute_name();
+		$thumb_file_path = SITE_ROOT.$this->upload_path($attribute_name).'/_thumbs/_'.$this->$attribute_name();
+		if (file_exists($full_file_path)) {
+			if (@unlink($full_file_path)) {
+				// Check to see if a thumbnail exists (in case it was an image file)
+				if (file_exists($thumb_file_path)) {
+					@unlink($thumb_file_path);
+				}
+				$attribute_setter = 'set_'.$attribute_name;
+				$this->$attribute_setter('');
+			}
+			else {
+				$this->set_error(null, sprintf(__("Failed to delete file: %s"),__($this->$attribute_name())));
+				return false;
+			}
 		}
-		else {
-			$this->set_error(null, "Failed to delete file: ".$this->$attribute_name());
-		}
-		return (!$this->errors());
+		return true;
 	}
 	/**
 	 * Return info about a file attribute - size, date, download URL and filename
@@ -774,12 +822,24 @@ class AbstractModel extends EventObserver {
 				Console::log("                        File found: ".$full_file_path);
 				$file_size = Crumbs::formatted_file_size($full_file_path);
 				$file_date = date('M j Y', filemtime(SITE_ROOT.$full_file_path));
-				return array(
+				$file_info = array(
 					"size" => $file_size,
 					"date" => $file_date,
 					"download_url" => $full_file_path,
-					"file_name" => $this->$attribute_name()
+					"file_name" => $this->$attribute_name(),
+					"is_image" => false
 				);
+				$image_type = exif_imagetype(SITE_ROOT.$full_file_path);
+				if ($image_type == IMAGETYPE_JPEG || $image_type == IMAGETYPE_PNG || $image_type == IMAGETYPE_GIF) {
+					$file_info['is_image'] = true;
+					// Add on some useful image data:
+					$image_size = getimagesize(SITE_ROOT.$full_file_path);
+					Console::log("Image info:\n".print_r($image_size,true));
+					$file_info['image_width']  = $image_size[0];
+					$file_info['image_height'] = $image_size[1];
+					$file_info['mime']         = $image_size['mime'];
+				}
+				return $file_info;
 			}
 		}
 		Console::log("                        File not found, moving on...");
@@ -847,7 +907,7 @@ class AbstractModel extends EventObserver {
 	 * @author Peter Epp
 	 */
 	public function upload_path($attribute_name) {
-		$path = '/uploads/'.AkInflector::underscore(get_class($this));
+		$path = '/uploads/'.AkInflector::underscore(Crumbs::normalized_model_name($this));
 		if (count($this->_attributes_with_uploads) > 1) {
 			$path .= '/'.AkInflector::pluralize($attribute_name);
 		}
@@ -868,17 +928,35 @@ class AbstractModel extends EventObserver {
 		return false;
 	}
 	/**
-	 * Add an error message to the array
+	 * Set the validation error message for a given attribute
 	 *
-	 * @param string $message 
+	 * @param string $attr_name The name of the attribute on which the validation error occurred
+	 * @param string|null $message Optional - a message to override the default
 	 * @return void
 	 * @author Peter Epp
 	 */
-	public function set_error($attr_name,$message) {
-		if (!empty($attr_name)) {
+	public function set_error($attr_name,$message = null) {
+		if (!empty($attr_name) && !in_array($attr_name,$this->_invalid_attributes)) {
 			$this->_invalid_attributes[] = $attr_name;
 		}
 		if (empty($this->_error_messages[$attr_name])) {
+			if (empty($message)) {
+				// If no specific message is supplied, set the message using some logic:
+				$error_method = $attr_name.'_error_message';
+				if (method_exists($this,$error_method)) {
+					// If a method is defined on the model for specifying the error for this attribute, use it:
+					$message = $this->$error_method();
+				} else if ($this->_attr_has_upload($attr_name) || $this->_attr_has_managed_file($attr_name)) {
+					// Otherwise, if the attribute contains an uploaded file, set an appropriate message:
+					$message = sprintf(__("Select a file for %s"),__($this->_attr_label($attr_name)));
+				} else if ($attr_name == 'email' || $attr_name == 'email_address') {
+					// If it's an email address:
+					$message = __("Provide a valid email address");
+				} else {
+					// Generic error message assuming that the field need only not be blank:
+					$message = sprintf(__("Provide a value for %s"),__($this->_attr_label($attr_name)));
+				}
+			}
 			$this->_error_messages[$attr_name] = $message;
 		}
 	}
@@ -918,7 +996,8 @@ class AbstractModel extends EventObserver {
 			return call_user_func(array($my_name,'db_tablename'));
 		}
 		else {
-			return AkInflector::tableize($my_name);
+			$model_class = Crumbs::normalized_model_name($this);
+			return AkInflector::tableize($model_class);
 		}
 	}
 	/**

@@ -8,7 +8,7 @@
 if (!Request::is_ajax()) {
 	$Biscuit->set_view_var('login_link',$Biscuit->ExtensionNavigation()->login_link());
 	$Biscuit->set_view_var('list_menu',$Biscuit->ExtensionNavigation()->render_list_menu());
-	$Biscuit->set_view_var('breadcrumbs',$Biscuit->ExtensionNavigation()->render_bread_crumbs());
+	$Biscuit->set_view_var('breadcrumbs',$Biscuit->ExtensionNavigation()->render_bread_crumbs('Home'));
 	$Biscuit->set_view_var('text_mainmenu',$Biscuit->ExtensionNavigation()->render_text_mainmenu());
 	$Biscuit->set_view_var('copyright_notice', Crumbs::copyright_notice('Peter Epp'));
 }

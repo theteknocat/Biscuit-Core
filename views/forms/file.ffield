@@ -1,23 +1,26 @@
-<label for="attr_<?php echo $id ?>"<?php if (!$is_valid) { ?> class="error"<?php } ?>><?php if ($required) { echo '*'; } echo $label ?></label>
+<label for="attr_<?php echo $id ?>"<?php if (!$is_valid) { ?> class="error"<?php } ?>><?php if ($required) { echo '*'; } echo $label ?>:</label>
 <input type="file" class="file<?php if (!$is_valid) { ?> error<?php } ?>" name="<?php echo $name ?>" id="attr_<?php echo $id ?>"<?php if (!empty($size)) { echo $size; } ?> value="<?php echo $default_value ?>">
 <?php
-if (!empty($upload_rules)) {
-	echo '<br>'.$upload_rules;
-}
 if (!empty($finfo)) {
-	?><br>
-	<span class="small">
-		<label>Current File: </label>
-		<a href="<?php echo $finfo['download_url'] ;?>"><?php echo $finfo['file_name']; ?></a> <span class="minor">(<?php echo  $finfo['size'] ?>, <?php echo  $finfo['date'] ?>)</span>
-	</span>
-	<?php
-	if (!$required) {
-		?>
-	<br>
-	<input type="checkbox" name="remove_<?php echo $id ?>" id="remove_<?php echo $id ?>" value="1"><label for="remove_<?php echo $id ?>">Remove File</label>
-		<?php
-	}
 	?>
+	<label style="clear: both"><?php echo __("Current File") ?>:</label>
+	<span class="field-container">
+		<span style="display:block;float:left;margin-right: 10px">
+			<a href="<?php echo $finfo['download_url'] ;?>" id="attr_<?php echo $id ?>-linked-file" target="_blank"><?php echo $finfo['file_name']; ?></a> <span class="small">(<?php
+				echo $finfo['size'];
+				if (!empty($finfo['is_image'])) {
+					echo '&nbsp;'.$finfo['mime'].'&nbsp;'.$finfo['image_width'].'x'.$finfo['image_height'];
+				}
+			?>)</span>
+		</span>
+		<?php
+		if (!$required) {
+			?>
+		<input type="checkbox" class="radio-button" name="remove_<?php echo $id ?>" id="remove_<?php echo $id ?>" value="1"><label class="radio-button-label" for="remove_<?php echo $id ?>"><?php echo __("Remove") ?></label>
+			<?php
+		}
+		?>
+	</span>
 	<?php
 }
 ?>

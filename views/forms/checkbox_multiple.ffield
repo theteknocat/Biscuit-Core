@@ -1,14 +1,12 @@
-<label<?php if (!$is_valid) { ?> class="error"<?php } ?>><?php if ($required) { echo '*'; } echo $label ?></label>
+<label<?php if (!$is_valid) { ?> class="error"<?php } ?>><?php if ($required) { echo '*'; } echo $label ?>:</label>
 <input type="hidden" name="<?php echo $name ?>" value="">
-<span id="attr_<?php echo $id ?>">
+<span id="attr_<?php echo $id ?>" class="field-container<?php if (!$is_valid) { ?> error<?php } ?>">
 <?php
 foreach ($data_set as $index => $item) {
 	?>
-<input type="checkbox" name="<?php echo $name ?>[]" id="attr_<?php echo $id.$index ?>" value="<?php echo $item['value'] ?>"<?php if (in_array($item['value'],$default_value)) { echo ' checked="checked"'; } ?>><label for="attr_<?php echo $id.$index ?>"><?php echo $item['label'] ?></label>
+<span class="radio-label-pair"><input type="checkbox" class="radio-button" name="<?php echo $name ?>[]" id="attr_<?php echo $id.$index ?>" value="<?php echo $item['value'] ?>"<?php if (is_array($default_value) && in_array($item['value'],$default_value)) { echo ' checked="checked"'; } ?>><label for="attr_<?php echo $id.$index ?>" class="radio-button-label"><?php echo $item['label'] ?></label></span>
 	<?php
-	if ($index < count($data_set)-1) {
-		?><br><?php
-	}
 }
 ?>
 </span>
+<span style="clear:both;display:block;height:0"></span>

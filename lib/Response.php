@@ -129,11 +129,15 @@ class Response {
 		else {
 			$url = $page;
 		}
-		if (Request::is_ajax() || Request::is_ajaxy_iframe_post()) {
+		if (Request::is_ajax() && Request::type() != 'update') {
+			self::content_type("application/json");
+			self::add_header("X-JSON","true");
+			self::send_headers();
+			self::write(Crumbs::to_json(array('redirect_page' => $url)));
+		} else if (Request::is_ajax() || Request::is_ajaxy_iframe_post()) {
 			Console::log("    AJAX Redirect to: $url");
 			self::write('<script language="javascript" type="text/javascript" charset="utf-8">top.location.href = "'.$url.'";</script>');
-		}
-		else {
+		} else {
 			if (self::headers_sent()) {
 				Console::log("    Redirect failed because headers have already been sent!");
 				return false;
@@ -195,7 +199,7 @@ class Response {
 				self::header("Pragma: public");
 			}
 		}
-		self::header("X-Powered-By: Biscuit MVC Framework 2.0");
+		self::header("X-Powered-By: Biscuit MVC Framework 2.1");
 		self::header("HTTP/1.1 ".self::$_http_status." ".self::$_http_codes[self::$_http_status]);
 		self::$_headers_sent = true;
 	}

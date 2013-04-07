@@ -9,18 +9,18 @@
 	 */
 ?>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
-<html>
+<html lang="<?php echo $lang ?>">
 	<head>
 	<?php print $header_tags; ?>
 
 	<?php print $header_includes; ?>
 
 	</head>
-	<body id="<?php echo $body_id ?>">
+	<body id="<?php echo $body_id ?>" class="locale-<?php echo $locale ?>">
 		<!-- Start Main Container -->
 		<div id="header">
 			<div id="banner">
-				<h1>Biscuit - The Rapid Application Development Framework</h1>
+				<h1><?php echo __("Biscuit - The Rapid Application Development Framework") ?></h1>
 				<div id="login-box">
 					<?php print $login_link; ?>
 				</div>
@@ -28,7 +28,7 @@
 		</div>
 		<div id="body-wrap">
 			<div id="left-bar">
-				<h2>Main Menu</h2>
+				<h2><?php echo __("Main Menu") ?></h2>
 				<?php print $list_menu; ?>
 			</div>
 			<div id="body" class="indexable-content">
@@ -44,7 +44,6 @@
 		<div id="footer">
 			<div id="footer-content">
 				<div id="copyright"><?php print $copyright_notice; ?></div>
-				<div id="hitcounter"><?php print $hit_counter; ?></div>
 				<?php print $text_mainmenu; ?>
 			</div>
 		</div>

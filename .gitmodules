@@ -7,18 +7,9 @@
 [submodule "extensions/html_purify"]
 	path = extensions/html_purify
 	url = git@github.com:theteknocat/Biscuit-HtmlPurifier.git
-[submodule "extensions/jquery"]
-	path = extensions/jquery
-	url = git@github.com:theteknocat/Biscuit-jQuery.git
 [submodule "extensions/navigation"]
 	path = extensions/navigation
 	url = git@github.com:theteknocat/Biscuit-Navigation.git
-[submodule "extensions/prototype_js"]
-	path = extensions/prototype_js
-	url = git@github.com:theteknocat/Biscuit-PrototypeJS.git
-[submodule "extensions/scriptaculous_js"]
-	path = extensions/scriptaculous_js
-	url = git@github.com:theteknocat/Biscuit-ScriptaculousJS.git
 [submodule "modules/authenticator"]
 	path = modules/authenticator
 	url = git@github.com:theteknocat/Biscuit-Authenticator.git

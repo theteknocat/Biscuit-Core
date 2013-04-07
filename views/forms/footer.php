@@ -1,5 +1,5 @@
 <?php
-$model_name = get_class($model);
+$model_name = Crumbs::normalized_model_name($model);
 if (!empty($custom_cancel_url)) {
 	$cancel_url = $custom_cancel_url;
 } else {
@@ -16,15 +16,15 @@ if ($has_del_button) {
 		<?php
 		if ($cancel_url != 'no-cancel-button') {
 			?>
-		<a href="<?php echo $cancel_url; ?>" id="form-cancel-bttn">Cancel</a>
+		<a href="<?php echo $cancel_url; ?>" id="form-cancel-bttn"><?php echo __("Cancel") ?></a>
 			<?php
 		}
 		?>
 		<?php
 		if ($has_del_button) {
-			?><a class="delete-button"<?php echo $del_rel ?> href="<?php echo $controller->url($delete_action, $model->id()); ?>">Delete</a><?php
+			?><a class="delete-button"<?php echo $del_rel ?> href="<?php echo $controller->url($delete_action, $model->id()); ?>"><?php echo __("Delete") ?></a><?php
 		}
 		?>
-		<input type="submit" name="SubmitButton" id="SubmitButton" class="SubmitButton" value="<?php echo $submit_label ?>">
+		<input type="submit" name="SubmitButton" id="SubmitButton" class="SubmitButton" value="<?php echo __($submit_label) ?>">
 	</div>
 </form>

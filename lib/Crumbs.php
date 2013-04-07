@@ -55,6 +55,9 @@ class Crumbs {
 		* @author Lee O'Mara
 		**/
 	public static function file_exists_in_load_path($file, $root_relative = false) {
+		if (substr($file,0,1) == '/') {
+			$file = substr($file,1);
+		}
 		// break load_path into bits
 		$bits = explode(':', ini_get("include_path"));
 		// check each bit to see if the file exists
@@ -107,6 +110,9 @@ class Crumbs {
 			}
 		}
 		unset($locals);
+		if (DB::is_connected()) {
+			$locale = I18n::instance()->locale();
+		}
 		if ($full_file_path = Crumbs::file_exists_in_load_path($filename)) {
 			ob_start();
 			require($full_file_path);
@@ -138,12 +144,18 @@ class Crumbs {
 	 *
 	 * @param string $format The format of the date as per the PHP date() function
 	 * @param string $datestring The string date to reformat
+	 * @param bool $localized If set to true, the date will be localized based on the locale set in PHP. This will only work, however if the format is returned in the format required by strftime()
 	 * @return void
 	 * @author Peter Epp
 	 */
-	public static function date_format($datestring,$format) {
+	public static function date_format($datestring,$format,$localized = false) {
 		$date = new Date($datestring);
-		return $date->format($format);
+		if ($localized) {
+			$formatted_date = strftime($format,$date->getTimestamp());
+		} else {
+			$formatted_date = $date->format($format);
+		}
+		return $formatted_date;
 	}
 	/**
 	 * Find the number of days in a given month and year
@@ -601,6 +613,25 @@ class Crumbs {
 		return $module_name;
 	}
 	/**
+	 * Return normalized name of a model. This is for when a model is extended and we want to always use the name of the parent model
+	 *
+	 * @param object|string $model_object_or_name Either an instance of a model object or the object name
+	 * @return string
+	 * @author Peter Epp
+	 */
+	public static function normalized_model_name($model_object_or_name) {
+		$my_parent_class = get_parent_class($model_object_or_name);
+		if ($my_parent_class != "AbstractModel") {
+			return $my_parent_class;
+		} else {
+			if (is_object($model_object_or_name)) {
+				return get_class($model_object_or_name);
+			} else {
+				return $model_object_or_name;
+			}
+		}
+	}
+	/**
 	 * Return the full path to a file requested for download, if the file is valid and publicly accessible.
 	 *
 	 * @param string $path Path to the file to download
@@ -661,7 +692,8 @@ class Crumbs {
 		if (!empty($prefix)) {
 			$cnotice .= $prefix." ";
 		}
-		$cnotice .= "Copyright &copy;".LAUNCH_YEAR.((date("Y") != LAUNCH_YEAR) ? ' - '.date("Y") : '').' '.$copyright_owner;
+		$year = LAUNCH_YEAR.((date("Y") != LAUNCH_YEAR) ? ' - '.date("Y") : '');
+		$cnotice .= sprintf(__("Copyright &copy; %s %s"),$year,__($copyright_owner));
 		if (!empty($suffix)) {
 			$cnotice .= " ".$suffix;
 		}
@@ -711,12 +743,7 @@ HTML;
 			}
 			$empty_caches_link = '';
 			if (SERVER_TYPE == 'LOCAL_DEV') {
-				$empty_caches_url = Request::uri();
-				if (preg_match('/\?/',$empty_caches_url)) {
-					$empty_caches_url .= '&empty_caches=1';
-				} else {
-					$empty_caches_url .= '?empty_caches=1';
-				}
+				$empty_caches_url = Crumbs::add_query_var_to_uri(Request::uri(),'empty_caches',1);
 				$empty_caches_link = '<a style="float: right; display: block; width: 100px; text-align: right" href="'.$empty_caches_url.'">Empty Caches</a>';
 			}
 			$info_bar_content = '<div style="float: left; padding: 0 5px; background: #94f088; border: 1px solid #3a8230; margin: 0 5px 0 0; color: #3a8230">'.$server_type.'</div>'.$info_bar_content;
@@ -728,5 +755,73 @@ HTML;
 		}
 		return '';
 	}
+	/**
+	 * Strip a query string variable from a URI
+	 *
+	 * @param string $uri 
+	 * @param string $var_name 
+	 * @return string
+	 * @author Peter Epp
+	 */
+	public static function strip_query_var_from_uri($uri,$var_name) {
+		if (!preg_match('/\?/',$uri)) {
+			return $uri;
+		}
+		$uri_bits = explode('?',$uri);
+		$base_uri = $uri_bits[0];
+		$query_string = $uri_bits[1];
+		$query_array = array();
+		parse_str($query_string,$query_array);
+		if (isset($query_array[$var_name])) {
+			unset($query_array[$var_name]);
+		}
+		if (!empty($query_array)) {
+			$new_query_string = http_build_query($query_array);
+			return $base_uri.'?'.$new_query_string;
+		} else {
+			return $base_uri;
+		}
+	}
+	/**
+	 * Add a variable to URI query string
+	 *
+	 * @param string $uri 
+	 * @param string $var_name 
+	 * @param string $var_value 
+	 * @return void
+	 * @author Peter Epp
+	 */
+	public static function add_query_var_to_uri($uri,$var_name,$var_value) {
+		if (preg_match('/\?/',$uri)) {
+			$uri_bits = explode('?',$uri);
+			$base_uri = $uri_bits[0];
+			$query_string = $uri_bits[1];
+			$query_array = array();
+			parse_str($query_string,$query_array);
+		} else {
+			$base_uri = $uri;
+			$query_array = array();
+		}
+		$query_array[$var_name] = $var_value;
+		$new_query_string = http_build_query($query_array);
+		return $base_uri.'?'.$new_query_string;
+	}
+	/**
+	 * Determine and return the appropriate "from" address for use when sending emails. Must always be on the domain that sent the email for spam filter compliance
+	 *
+	 * @return string
+	 * @author Peter Epp
+	 */
+	public static function site_from_address() {
+		list($owner_user,$owner_domain) = explode('@',OWNER_EMAIL);
+		$current_host = Request::server('HTTP_HOST');
+		if ($owner_domain == $current_host) {
+			// If the configured owner email address is running on the current host, use it
+			$from_address = OWNER_EMAIL;
+		} else {
+			// Otherwise use noreply on the current host
+			$from_address = 'noreply@'.Request::server('HTTP_HOST');
+		}
+		return $from_address;
+	}
 }
-?>

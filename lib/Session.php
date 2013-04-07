@@ -315,8 +315,8 @@ class Session {
 		if (!Biscuit::instance()->ModuleAuthenticator()->user_is_logged_in()) {	// No-one logged in
 			return true;
 		}
-		if (SERVER_TYPE == 'LOCAL_DEV') {
-			// For local dev machine, extend the session so it continues infinitely.
+		if (SERVER_TYPE == 'LOCAL_DEV' && DEBUG) {
+			// For local dev machine in debug mode, extend the session so it continues infinitely.
 			self::set_expiry();
 		} else if ($_SESSION['expires_at'] < time()) {
 			return true;

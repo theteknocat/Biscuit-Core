@@ -42,12 +42,24 @@ class DB {
 	 * @author Peter Epp
 	 **/
 	public static function connect() {
-	    $dsn = "mysql:dbname=".DBNAME.";host=".DBHOST;
+		$dsn = "mysql:dbname=".DBNAME.";host=".DBHOST;
+		$driver_options = array(
+			PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES 'utf8' COLLATE 'utf8_general_ci'"
+		);
 		try {
-			self::$_pdo = new PDO($dsn, DBUSER, DBPASS);
+			self::$_pdo = new PDO($dsn, DBUSER, DBPASS, $driver_options);
 		} catch (PDOException $e) {
 			trigger_error("Database connection failed: ".$e->getMessage(), E_USER_ERROR);
 		}
+	}
+	/**
+	 * Whether or not we have a database connection
+	 *
+	 * @return bool
+	 * @author Peter Epp
+	 */
+	public static function is_connected() {
+		return (is_object(self::$_pdo));
 	}
 	/**
 	 * Close database connection
@@ -228,8 +240,14 @@ class DB {
 	 * @author Peter Epp
 	 */
 	public static function column_exists_in_table($column_name,$table_name) {
-		$column = self::fetch_one("SHOW COLUMNS FROM `{$table_name}` WHERE `Field` = '{$column_name}'");
-		return (!empty($column));
+		$columns = self::fetch("SHOW COLUMNS FROM `{$table_name}`");
+		foreach ($columns as $column) {
+			if ($column['Field'] == $column_name) {
+				return true;
+				break;
+			}
+		}
+		return false;
 	}
 	/**
 	 * Find and return MySQL version as a numeric value
@@ -256,7 +274,11 @@ class DB {
 	private static function log_query($query) {
 		$backtrace = debug_backtrace();
 		$db_method = AkInflector::humanize($backtrace[2]['function']);
-		$called_by = $backtrace[3]['class'].$backtrace[3]['type'].$backtrace[3]['function'];
+		if ($backtrace[3]['function'] == 'model_from_query' || $backtrace[3]['function'] == 'models_from_query') {
+			$called_by = $backtrace[4]['class'].$backtrace[4]['type'].$backtrace[4]['function'];
+		} else {
+			$called_by = $backtrace[3]['class'].$backtrace[3]['type'].$backtrace[3]['function'];
+		}
 		// Tidy up the query:
 		$query = preg_replace("/[\n\r]/","\t",$query);	// Replace line breaks with tabs
 		$query = preg_replace("/\t+/"," ",$query);	// Replace tabs with spaces

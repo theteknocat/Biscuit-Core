@@ -10,7 +10,13 @@
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
  * @version 2.0
  */
-class EventDispatcher implements SplSubject {
+class EventDispatcher implements Singleton {
+	/**
+	 * Instance of self
+	 *
+	 * @author Peter Epp
+	 */
+	private static $_instance;
 	/**
 	 * List of observing classes
 	 *
@@ -18,35 +24,41 @@ class EventDispatcher implements SplSubject {
 	 */
 	private $_observers = array();
 	/**
-	 * Name of the fired event
+	 * Prevent public instantiation
 	 *
-	 * @var string
+	 * @author Peter Epp
 	 */
-	private $_event_name;
+	private function __construct() {}
 	/**
-	 * Any additional arguments for use by the observer
+	 * Return a singleton instance
 	 *
-	 * @var array
+	 * @return self
+	 * @author Peter Epp
 	 */
-	private $_additional_args = null;
+	public static function instance() {
+		if (empty(self::$_instance)) {
+			self::$_instance = new self();
+		}
+		return self::$_instance;
+	}
 	/**
 	 * Attach an observer
 	 *
-	 * @param SplObserver $observer 
+	 * @param EventObserver $observer 
 	 * @return void
 	 * @author Peter Epp
 	 */
-	public function attach(SplObserver $observer) {
+	public function attach(EventObserver $observer) {
 		$this->_observers[] = $observer;
 	}
 	/**
 	 * Detach an observer
 	 *
-	 * @param SplObserver $observer 
+	 * @param EventObserver $observer 
 	 * @return void
 	 * @author Peter Epp
 	 */
-	public function detach(SplObserver $observer) {
+	public function detach(EventObserver $observer) {
 		if ($index = array_search($observer, $this->_observers, true)) {
 			unset($this->_observers[$index]);
 		}
@@ -57,49 +69,10 @@ class EventDispatcher implements SplSubject {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	public function notify() {
+	public function notify(Event $event) {
 		foreach ($this->_observers as $observer) {
-			$observer->update($this);
+			$observer->respond_to_event($event);
 		}
-	}
-	/**
-	 * Set the event name and notify all observers
-	 *
-	 * @param string $event_name 
-	 * @return void
-	 * @author Peter Epp
-	 */
-	public function setValue($event_name) {
-		$this->_event_name = $event_name;
-		$this->notify();
-	}
-	/**
-	 * Set additional arguments for use by the observer if desired
-	 *
-	 * @param array $args 
-	 * @return void
-	 * @author Peter Epp
-	 */
-	public function setAdditionalArgs($args) {
-		$this->_additional_args = $args;
-	}
-	/**
-	 * Get any additional arguments set when an event was fired
-	 *
-	 * @return array|null
-	 * @author Peter Epp
-	 */
-	public function getAdditionalArgs() {
-		return $this->_additional_args;
-	}
-	/**
-	 * Get the name of the fired event
-	 *
-	 * @return string
-	 * @author Peter Epp
-	 */
-	public function getValue() {
-		return $this->_event_name;
 	}
 }
 ?>

@@ -9,7 +9,6 @@
  * @version 2.0
  */
 class ModuleCore extends ExtensionCore {
-
 	/**
 	 * Whether or not the module has rendered
 	 *
@@ -109,24 +108,29 @@ class ModuleCore extends ExtensionCore {
 		return DB::insert("INSERT INTO `module_pages` SET `module_id` = ?, `page_name` = ?, `is_primary` = ?",array($module_id,$page_slug,$is_primary));
 	}
 	/**
-	 * Include installed modules
+	 * Return all the module rewrite rules
 	 *
-	 * @return void
+	 * @return array
 	 * @author Peter Epp
 	 */
-	protected function load_modules() {
-		Console::log("    Load modules");
+	protected function get_module_rewrite_rules() {
+		Console::log("    Get rewrite rules for all installed modules");
+		$module_rewrite_rules = array();
 		$module_names = DB::fetch("SELECT `name` FROM `modules` WHERE `installed` = 1 ORDER BY `sort_order`");
 		if ($module_names) {
 			foreach ($module_names as $name) {
 				try {
-					$this->load_controller($name);
 					$class_name = Crumbs::module_classname($name);
 					// Store the module's rewrite rules, if provided, so they can be provided when it comes time to parse the query:
 					if (Crumbs::public_method_exists($class_name,'rewrite_rules')) {
 						$rewrite_rules = call_user_func(array($class_name,'rewrite_rules'));
 						if (!empty($rewrite_rules)) {
-							$this->set_module_rewrite_rules($rewrite_rules);
+							foreach ($rewrite_rules as $rewrite_rule) {
+								$module_rewrite_rules[] = array(
+									'pattern'     => $rewrite_rule['pattern'],
+									'replacement' => $rewrite_rule['replacement']
+								);
+							}
 						}
 					}
 					Console::log("        ".$name." successfully loaded");
@@ -135,51 +139,7 @@ class ModuleCore extends ExtensionCore {
 				}
 			}
 		}
-	}
-	/**
-	 * Load the controller for a given module
-	 *
-	 * @param string $module_folder 
-	 * @return void
-	 * @author Peter Epp
-	 */
-	private function load_controller($module_name) {
-		$module_folder = AkInflector::underscore($module_name);
-		$controller_path = $module_folder."/controller.php";
-		if ($file = Crumbs::file_exists_in_load_path($controller_path)) {
-			if (preg_match('/\/customized\//',$file)) {
-				$parent_file = preg_replace('/\/customized\//','/',$file);
-				require_once $parent_file;
-			}
-			require_once $file;
-		}
-		else {
-			throw new ModuleException("Module could not load, file not found: ".$controller_path);
-		}
-	}
-	/**
-	 * Set rewrite rules for a module
-	 *
-	 * @param array $rewrite_rules 
-	 * @return void
-	 * @author Peter Epp
-	 */
-	private function set_module_rewrite_rules($rewrite_rules) {
-		foreach ($rewrite_rules as $rewrite_rule) {
-			$this->_module_rewrite_rules[] = array(
-				'pattern'     => $rewrite_rule['pattern'],
-				'replacement' => $rewrite_rule['replacement']
-			);
-		}
-	}
-	/**
-	 * Return all the module rewrite rules
-	 *
-	 * @return array
-	 * @author Peter Epp
-	 */
-	protected function get_module_rewrite_rules() {
-		return $this->_module_rewrite_rules;
+		return $module_rewrite_rules;
 	}
 	/**
 	 * Load all common models for both the site and the framework, excluding ones from the framework that exist in the site
@@ -270,37 +230,17 @@ class ModuleCore extends ExtensionCore {
 		$timestamps = array();
 		$model_names = $this->all_model_names();
 		if (!empty($model_names)) {
-			$placeholders = implode(", ",array_fill(0, count($model_names), '?'));
-			$db_updated = DB::fetch_one("SELECT `date` FROM `model_last_updated` WHERE `model_name` IN ({$placeholders}) ORDER BY `date` DESC LIMIT 1", $model_names);
+			Console::log("Checking when these models were last updated: ".implode(', ',$model_names));
+			$model_names_string = "'".implode("', '",$model_names)."'";
+			$db_updated = DB::fetch_one("SELECT `date` FROM `model_last_updated` WHERE `model_name` IN ({$model_names_string}) ORDER BY `date` DESC LIMIT 1");
 			if ($db_updated) {
-				$timestamps[] = strtotime($db_updated);
+				$latest_update = strtotime($db_updated);
 			}
 		}
-		$possible_module_folders = array('factories', 'models', 'views');
-		foreach ($this->modules as $module_name => $module) {
-			$base_path = $module->base_path();
-			$controller_path = $base_path.'/controller.php';
-			if ($full_controller_path = Crumbs::file_exists_in_load_path($controller_path)) {
-				$timestamps[] = filemtime($full_controller_path);
-			}
-			foreach ($possible_module_folders as $folder_name) {
-				if ($folder_path = Crumbs::file_exists_in_load_path($base_path.'/'.$folder_name, SITE_ROOT_RELATIVE)) {
-					// Fetch the list of files in the folder:
-					$file_list = FindFiles::ls($folder_path);
-					if (!empty($file_list)) {
-						foreach ($file_list as $file_name) {
-							$full_file_path = SITE_ROOT.$folder_path.'/'.$file_name;
-							$timestamps[] = filemtime($full_file_path);
-						}
-					}
-				}
-			}
-		}
-		if (empty($timestamps)) {
+		if (empty($latest_update)) {
 			return false;
 		}
-		rsort($timestamps);
-		return reset($timestamps);
+		return $latest_update;
 	}
 	/**
 	 * Run all modules associated with the current page
@@ -370,16 +310,35 @@ class ModuleCore extends ExtensionCore {
 		$module_path = $module->base_path();
 		$module_name = get_class($module);
 		if (!$module->is_primary() || !$this->primary_module_rendered()) {
-			$module_viewfile = implode('/', array($module_path, 'views', $action.'.php'));
+			$locale = I18n::instance()->locale();
+
+			// First look for a view file specific to the current locale ([module_path]/views/[locale]/action_name.php)
+			$module_viewfile = implode('/',array($module_path, 'views', $locale, $action.'.php'));
+
 			if (!Crumbs::file_exists_in_load_path($module_viewfile)) {
-				$module_viewfile = 'modules/generic_views/'.$action.'.php';
+				// If no locale-specific view exists, look for just the action-specific view:
+				$module_viewfile = implode('/', array($module_path, 'views', $action.'.php'));
+
 				if (!Crumbs::file_exists_in_load_path($module_viewfile)) {
-					if ($module->base_action_name($action) == 'delete') {
-						// Special case for delete action, since we know for a fact that there is a generic delete view file in the framework that can
-						// apply to any model and can therefore always use it as a fallback regardless of the model-specific delete action
-						$module_viewfile = 'modules/generic_views/delete.php';
-					} else {
-						throw new ViewNotFoundException();
+					// If that one doesn't exist, look for a locale-specific generic view:
+					$module_viewfile = 'modules/generic_views/'.$locale.'/'.$action.'.php';
+
+					if (!Crumbs::file_exists_in_load_path($module_viewfile)) {
+						// If no locale-specific generic view, look for just the action-specific generic view:
+						$module_viewfile = 'modules/generic_views/'.$action.'.php';
+
+						if (!Crumbs::file_exists_in_load_path($module_viewfile)) {
+							// If that doesn't exist, check special case for delete view:
+
+							if ($module->base_action_name($action) == 'delete') {
+								// Special case for delete action, since we know for a fact that there is a generic delete view file in the framework that can
+								// apply to any model and can therefore always use it as a fallback regardless of the model-specific delete action
+								$module_viewfile = 'modules/generic_views/delete.php';
+							} else {
+								// If not the delete special case, throw an exception. This will trigger an error 404 for the user
+								throw new ViewNotFoundException();
+							}
+						}
 					}
 				}
 			}
@@ -496,11 +455,16 @@ class ModuleCore extends ExtensionCore {
 	protected function all_model_names() {
 		$model_names = array();
 		foreach ($this->modules as $module_name => $module) {
-			if (Crumbs::public_method_exists($module, 'model_names')) {
-				$model_names = array_merge($model_names, $module->model_names());
+			if (Crumbs::public_method_exists($module, 'models_affecting_content')) {
+				$model_names = array_merge($model_names, $module->models_affecting_content());
+			} else {
+				$model_names = array_merge($model_names, $module->all_model_names());
 			}
 		}
-		return $model_names;
+		// List of models to never check:
+		$skip_models = array(
+			'Menu', 'AccessLevels', 'AccountStatus', 'Permission', 'UserEmailVerification', 'PasswordResetToken'
+		);
+		return array_diff($model_names, $skip_models);
 	}
 }
-?>

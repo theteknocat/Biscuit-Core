@@ -15,7 +15,7 @@ class Form {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	private function __contsruct() {
+	private function __construct() {
 	}
 	/**
 	 * Output a single-line text field
@@ -173,6 +173,25 @@ class Form {
 		return self::build_field_tag("file",$options);
 	}
 	/**
+	 * Build a file browser field that use the stand alone tiny mce file manager
+	 *
+	 * @param string $id 
+	 * @param string $name 
+	 * @param string $label 
+	 * @param string $required 
+	 * @param string $is_valid 
+	 * @param string $tiny_mce Reference to the Tiny Mce extension
+	 * @param string $options 
+	 * @return void
+	 * @author Peter Epp
+	 */
+	public function managed_file($id,$name,$label,$default_value,$required,$is_valid,$tiny_mce,$media_type,$options = array()) {
+		$options = self::prep_common_options($id,$name,$label,$default_value,$required,$is_valid,$options);
+		$options['TinyMce'] = $tiny_mce;
+		$options['media_type'] = $media_type;
+		return self::build_field_tag("managed_file",$options);
+	}
+	/**
 	 * Output a date-picker field. Requires the Calendar module to function.
 	 *
 	 * @param string $id Value for the id attribute
@@ -182,9 +201,8 @@ class Form {
 	 * @return text
 	 * @author Peter Epp
 	 */
-	public static function date_picker($id,$name,$label,$default_value,$calendar,$required,$is_valid,$options = array()) {
+	public static function date_picker($id,$name,$label,$default_value,$required,$is_valid,$options = array()) {
 		$options = self::prep_common_options($id,$name,$label,$default_value,$required,$is_valid,$options);
-		$options['calendar'] = $calendar;
 		return self::build_field_tag("date_picker",$options);
 	}
 	/**
@@ -219,6 +237,8 @@ class Form {
 	public static function footer($controller, $model, $has_del_button, $submit_label = "Save", $custom_cancel_url = null, $del_rel = '') {
 		if (!empty($del_rel)) {
 			$del_rel = ' rel="'.$del_rel.'"';
+		} else {
+			$del_rel = ' rel="this '.AkInflector::humanize(Crumbs::normalized_model_name($model)).'"';
 		}
 		return Crumbs::capture_include('views/forms/footer.php',array(
 			'controller' => $controller,
@@ -252,10 +272,10 @@ class Form {
 	 * @author Peter Epp
 	 */
 	private static function prep_common_options($id,$name,$label,$default_value,$required,$is_valid,$options) {
+		// Translate the label before making modifications to it for output:
+		$label = __($label);
 		if (empty($label)) {
 			$label = "&nbsp;";
-		} else if (substr($label,-1) != ":") {
-			$label .= ":";
 		}
 		$options['id']            = $id;
 		$options['name']          = $name;

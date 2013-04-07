@@ -61,35 +61,9 @@ class CacheControl extends EventObserver {
 		Console::log("    Checking when content was last modified...");
 		$timestamps = array();
 
-		$latest_config_update    = $this->Config->latest_update();
-		$latest_page_update      = $this->Page->latest_update();
-		$latest_theme_update     = $this->Page->latest_theme_update();
-		$latest_module_update    = $this->latest_module_update();
-		$latest_extension_update = $this->latest_extension_update();
-
-		if (!empty($latest_page_update)) {
-			$timestamps[] = $latest_page_update;
-		}
-
+		$latest_module_update = $this->latest_module_update();
 		if (!empty($latest_module_update)) {
 			$timestamps[] = $latest_module_update;
-		}
-
-		if (!empty($latest_extension_update)) {
-			$timestamps[] = $latest_extension_update;
-		}
-
-		if (!empty($latest_theme_update)) {
-			$timestamps[] = $latest_theme_update;
-		}
-
-		if (!empty($latest_config_update)) {
-			$timestamps[] = $latest_config_update;
-		}
-
-		if (empty($timestamps)) {
-			// This should never be possible, so if it happens there's a serious problem
-			trigger_error("Cannot get any timestamps for theme, page, modules, extensions and configuration!", E_USER_ERROR);
 		}
 
 		// Fire an event to invoke modules to provide their timestamps
@@ -208,7 +182,7 @@ class CacheControl extends EventObserver {
 	 * @return bool
 	 * @author Peter Epp
 	 */
-	protected function page_cache_is_valid() {
+	public function page_cache_is_valid() {
 		return $this->_page_cache_is_valid;
 	}
 	/**
@@ -218,6 +192,7 @@ class CacheControl extends EventObserver {
 	 * @author Peter Epp
 	 */
 	public function empty_cache() {
+		Console::log("Empty page cache");
 		$cache_files = FindFiles::ls('/page_cache',array('types' => 'cache'));
 		if (!empty($cache_files)) {
 			foreach ($cache_files as $cache_file) {
@@ -226,22 +201,26 @@ class CacheControl extends EventObserver {
 		}
 	}
 	/**
-	 * On startup of Biscuit, empty all caches if requested in get params
+	 * On Biscuit initialization, fire an event if there's a query string requesting cache emptying and then redirect
 	 *
 	 * @return void
 	 * @author Peter Epp
 	 */
 	protected function act_on_biscuit_initialization() {
 		if (Request::query_string('empty_caches') == 1) {
-			Console::log("Emptying caches");
-			$this->empty_cache();
-			JsAndCssCache::empty_caches();
-			// Redirect to the current request URI with the empty_cache param stripped
-			$uri = Request::uri();
-			$uri = str_replace('?empty_caches=1','',$uri);
-			$uri = str_replace('&empty_caches=1','',$uri);
+			Console::log("Empty cache request, firing event to trigger cache emptying...");
+			Event::fire('empty_cache_request');
+			$uri = Crumbs::strip_query_var_from_uri(Request::uri(),'empty_caches');
 			Response::redirect($uri);
 		}
 	}
+	/**
+	 * Empty page cache on request
+	 *
+	 * @return void
+	 * @author Peter Epp
+	 */
+	protected function act_on_empty_cache_request() {
+		$this->empty_cache();
+	}
 }
-?>

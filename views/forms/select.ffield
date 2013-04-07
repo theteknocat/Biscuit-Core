@@ -1,10 +1,10 @@
-<label for="attr_<?php echo $id ?>"<?php if (!$is_valid) { ?> class="error"<?php } ?>><?php if ($required) { echo '*'; } echo $label ?></label>
+<label for="attr_<?php echo $id ?>"<?php if (!$is_valid) { ?> class="error"<?php } ?>><?php if ($required) { echo '*'; } echo $label ?>:</label>
 <select<?php if (!$is_valid) { ?> class="error"<?php } ?> name="<?php echo $name ?>" id="attr_<?php echo $id ?>"<?php if (!empty($height)) { echo ' size="'.$height.'"'; } ?>>
 	<option value=""><?php echo $first_item_label ?></option>
 	<?php
 	foreach ($data_set as $item) {
 		?>
-	<option value="<?php echo htmlentities($item['value']) ?>"<?php if ($item['value'] == $default_value) { echo ' selected="selected"'; } ?>><?php echo $item['label'] ?></option>
+	<option value="<?php echo $item['value'] ?>"<?php if ($item['value'] == $default_value) { echo ' selected="selected"'; } ?>><?php echo $item['label'] ?></option>
 		<?php
 	}
 	?>

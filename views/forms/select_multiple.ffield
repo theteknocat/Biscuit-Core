@@ -1,9 +1,9 @@
-<label for="attr_<?php echo $id ?>"<?php if (!$is_valid) { ?> class="error"<?php } ?>><?php if ($required) { echo '*'; } echo $label ?></label>
+<label for="attr_<?php echo $id ?>"<?php if (!$is_valid) { ?> class="error"<?php } ?>><?php if ($required) { echo '*'; } echo $label ?>:</label>
 <select<?php if (!$is_valid) { ?> class="error"<?php } ?> name="<?php echo $name ?>" id="attr_<?php echo $id ?>" multiple size="<?php echo $height ?>">
 	<?php
 	foreach ($data_set as $item) {
 		?>
-	<option value="<?php echo htmlentities($item['value']) ?>"<?php if (in_array($item['value'],$default_value)) { echo ' selected="selected"' } ?>><?php echo $item['label'] ?></option>
+	<option value="<?php echo $item['value'] ?>"<?php if (is_array($default_value) && in_array($item['value'],$default_value)) { echo ' selected="selected"'; } ?>><?php echo $item['label'] ?></option>
 		<?php
 	}
 	?>

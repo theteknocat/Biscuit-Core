@@ -125,6 +125,19 @@ class Page extends AbstractModel {
 		return true;
 	}
 	/**
+	 * Decide which attribute to use for the friendly slug - nav label if present, otherwise title
+	 *
+	 * @return void
+	 * @author Peter Epp
+	 */
+	protected function slug_attribute() {
+		if ($this->has_navigation_label() && $this->navigation_label()) {
+			return 'navigation_label';
+		} else {
+			return 'title';
+		}
+	}
+	/**
 	 * Validate the page title by checking that it will not result in an empty friendly slug
 	 *
 	 * @return bool
@@ -132,11 +145,28 @@ class Page extends AbstractModel {
 	 */
 	public function title_is_valid() {
 		$slug = $this->friendly_slug();
-		if (!$this->title() || empty($slug)) {
-			$this->set_error('title','Enter a title of at least one word, 1 or more characters long containing one or more letters or numbers that are not common short words/prepositions.');
-			return false;
+		return ($this->title() && !empty($slug));
+	}
+	/**
+	 * Error message for invalid page title
+	 *
+	 * @return void
+	 * @author Peter Epp
+	 */
+	public function title_error_message() {
+		return __('Enter a title of at least one word, 1 or more characters long containing one or more letters or numbers that are not common short words/prepositions.');
+	}
+	/**
+	 * Return the appropriate title for navigation, breadcrumbs browser title etc.
+	 *
+	 * @return void
+	 * @author Peter Epp
+	 */
+	public function navigation_title() {
+		if ($this->has_navigation_label() && $this->navigation_label()) {
+			return $this->navigation_label();
 		}
-		return true;
+		return $this->title();
 	}
 	/**
 	 * Return a slug with the slashes turned to hyphens
@@ -157,7 +187,7 @@ class Page extends AbstractModel {
 	 */
 	public function full_title($separator = null) {
 		if ($this->slug() == "index") {
-			$title_string = HOME_TITLE;
+			$title_string = __(HOME_TITLE);
 		}
 		else {
 			if ($separator !== null) {
@@ -170,7 +200,12 @@ class Page extends AbstractModel {
 				// Otherwise default:
 				$separator = ' :: ';
 			}
-			$title_string = $this->title().$separator.SITE_TITLE;
+			if ($this->has_navigation_label() && $this->navigation_label()) {
+				$title = $this->navigation_label();
+			} else {
+				$title = $this->title();
+			}
+			$title_string = __($title).$separator.__(SITE_TITLE);
 		}
 		return $title_string;
 	}
@@ -207,10 +242,25 @@ class Page extends AbstractModel {
 	 **/
 	public function view_file() {
 		if (empty($this->_view_file)) {
+
+			$base_with_locale = "views/".I18n::instance()->locale()."/".$this->slug();
+
 			$base = "views/".$this->slug();
 
 			// Make a list of all the files we want to look for, in order of preference:
 			$view_files = array(
+				'locale_html_file' => array(
+					'relative'  => $base_with_locale.'.html',
+					'full_path' => Crumbs::file_exists_in_load_path($base_with_locale.".html")
+				),
+				'locale_php_file' => array(
+					'relative'  => $base_with_locale.'.php',
+					'full_path' => Crumbs::file_exists_in_load_path($base_with_locale.".php")
+				),
+				'locale_txt_file' => array(
+					'relative'  => $base_with_locale.'.txt',
+					'full_path' => Crumbs::file_exists_in_load_path($base_with_locale.".txt")
+				),
 				'html_file' => array(
 					'relative'  => $base.'.html',
 					'full_path' => Crumbs::file_exists_in_load_path($base.".html")
@@ -228,15 +278,15 @@ class Page extends AbstractModel {
 			// Look for the first one that's found in the site root:
 			foreach ($view_files as $type => $view_file) {
 				// We check that it's NOT in the FW_ROOT, since the path will always contain the SITE_ROOT
-				if ($view_file['full_path'] && !stristr($view_file['full_path'],FW_ROOT)) {
+				if (!empty($view_file['full_path']) && !stristr($view_file['full_path'],FW_ROOT)) {
 					$use_view_file = $view_file['relative'];
 					break;
 				}
 			}
 			if (empty($use_view_file)) {
-				// None found in site root, check in framework root:
+				// None found in site root, grab the first one that was found - it'll be in the framework root if it wasn't found in the site root
 				foreach ($view_files as $type => $view_file) {
-					if ($view_file['full_path'] && stristr($view_file['full_path'],FW_ROOT)) {
+					if (!empty($view_file['full_path'])) {
 						$use_view_file = $view_file['relative'];
 						break;
 					}
@@ -429,53 +479,6 @@ class Page extends AbstractModel {
 		return false;
 	}
 	/**
-	 * Determine the last time any files in the theme were updated
-	 *
-	 * @return int Unix timestamp
-	 * @author Peter Epp
-	 */
-	public function latest_theme_update() {
-		$theme_path  = $theme_path = Crumbs::file_exists_in_load_path($this->theme_dir(),true);
-		$theme_files = FindFiles::ls($theme_path, array(), false, true);
-		if (!empty($theme_files)) {
-			foreach ($theme_files as $theme_file) {
-				$timestamps[] = $theme_file->getMTime();
-			}
-			rsort($timestamps);
-			return reset($timestamps);
-		}
-		return false;
-	}
-	/**
-	 * Return the timestamp of when the template or the page's static view (if present) was last updated, whichever is newer
-	 *
-	 * @return int
-	 * @author Peter Epp
-	 */
-	public function latest_update() {
-		$timestamps = array();
-		$page_index_info = DB::fetch_one("SHOW TABLE STATUS LIKE 'page_index'");
-		if ($page_index_info) {
-			$timestamps[] = strtotime($page_index_info['Update_time']);
-		}
-		$template_file = $this->select_template();
-		if ($full_template_path = Crumbs::file_exists_in_load_path($template_file)) {
-			$timestamps[] = filemtime($full_template_path);
-		}
-		if ($full_view_path = Crumbs::file_exists_in_load_path($this->view_file())) {
-			$timestamps[] = filemtime($full_view_path);
-		}
-		$template_codefile = $this->full_theme_path().'/template.php';
-		if (file_exists($template_codefile)) {
-			$timestamps[] = filemtime($template_codefile);
-		}
-		if (empty($timestamps)) {
-			return false;
-		}
-		rsort($timestamps);
-		return reset($timestamps);
-	}
-	/**
 	 * Return the full path to cache file for current page
 	 *
 	 * @return string
@@ -489,11 +492,12 @@ class Page extends AbstractModel {
 			$request_uri = substr($request_uri,0,-1);
 		}
 		$hyphenized_uri = str_replace('/','-',$request_uri);
-		$full_file_path = SITE_ROOT.'/page_cache/'.$this->theme_name().'-'.$this->template_name().'-'.$hyphenized_uri;
+		$cache_filename = I18n::instance()->locale().$this->theme_name().$this->template_name().$hyphenized_uri;
 		if (Request::is_ajax()) {
-			$full_file_path .= '-ajax';
+			$cache_filename .= 'ajax';
 		}
-		$full_file_path .= '.cache';
+		$filename_hash = sha1($cache_filename);
+		$full_file_path = SITE_ROOT.'/page_cache/'.$filename_hash.".cache";
 		return $full_file_path;
 	}
 	/**
@@ -672,4 +676,3 @@ class Page extends AbstractModel {
 		return 'the &ldquo;'.$this->title().'&rdquo; Page';
 	}
 }
-?>

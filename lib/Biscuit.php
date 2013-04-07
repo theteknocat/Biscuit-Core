@@ -6,58 +6,16 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0
+ * @version 2.1
  **/
 // TODO Add a mechanism for handling certain file types, like images, in a special when an error 404 occurs.  For example send a "no_image.gif".
 class Biscuit extends ModuleCore implements Singleton {
 	/**
-	 * Array of Javascript files for inclusion in the template.  Modules and extensions can add to this array by calling Biscuit::register_js('filename')
+	 * Biscuit version number
 	 *
-	 * @var array
+	 * @var float
 	 */
-	protected $_js_files = array();
-	/**
-	 * Array of Javascript files that must stand alone and not be compiled with the rest
-	 *
-	 * @var string
-	 */
-	protected $_standalone_js_files = array();
-	/**
-	 * List of JS files queued for adding to the end of the main list
-	 *
-	 * @var string
-	 */
-	protected $_queued_js_files = array();
-	/**
-	 * You guessed it - list of standalone JS files queued for adding to the end of the main list
-	 *
-	 * @var string
-	 */
-	protected $_queued_standalone_js_files = array();
-	/**
-	 * Array of CSS files for inclusion in the template.  Modules and extensions can add to this array by calling Biscuit::register_css(array('filename' => 'filename.css','media' => '[all/screen/projection/print]'))
-	 *
-	 * @var array
-	 */
-	protected $_css_files = array();
-	/**
-	 * List of CSS files queued for adding to the end of the main list
-	 *
-	 * @var string
-	 */
-	protected $_queued_css_files = array();
-	/**
-	 * List of IE-specific CSS files
-	 *
-	 * @var string
-	 */
-	protected $_ie_css_files = array();
-	/**
-	 * List of IE6-specific CSS files
-	 *
-	 * @var string
-	 */
-	protected $_ie6_css_files = array();
+	protected static $_version = 2.1;
 	/**
 	 * An array of variables that will be made into local variables at render time, if any exist
 	 *
@@ -120,11 +78,11 @@ class Biscuit extends ModuleCore implements Singleton {
 	 */
 	private $_compiled_content;
 	/**
-	 * Place for extra header tag HTML to be registered
+	 * Reference to Theme object
 	 *
-	 * @var string
+	 * @var Theme
 	 */
-	private $_extra_header_tags = array();
+	public $Theme;
 	/**
 	 * Return a singleton instance of the Biscuit object
 	 *
@@ -193,16 +151,20 @@ class Biscuit extends ModuleCore implements Singleton {
 		try {
 			Event::add_observer($this);
 
+			$this->Theme = new Theme();
+
+			// Start the fragment cache invalidation observer
+			new FragmentCacheInvalidator();
+
 			// Setup page factory
 			$this->page_factory = new ModelFactory("Page");
 
-			// Load and initialize global extensions
-			$this->load_global_extensions();
+			// Initialize global extensions
 			$this->init_global_extensions();
 
 			$this->load_shared_models();
 
-			$this->load_modules();
+			I18n::instance()->load_translations();
 
 			$this->parse_request();
 
@@ -220,8 +182,10 @@ class Biscuit extends ModuleCore implements Singleton {
 
 			$this->init_page_modules();
 
+			$this->request_token_check();
+
 		} catch (CoreException $e) {
-			trigger_error("Core Exception: ".$e->getMessage());
+			trigger_error("Core Exception: ".$e->getMessage(),E_USER_ERROR);
 		}
 	}
 	/**
@@ -249,7 +213,6 @@ class Biscuit extends ModuleCore implements Singleton {
 	 * @author Peter Epp
 	 */
 	public function dispatch() {
-		$this->request_token_check();
 		$record_or_view_found = true;
 		try {
 			$this->run_install_or_uninstall_ops();
@@ -291,7 +254,7 @@ class Biscuit extends ModuleCore implements Singleton {
 			$this->run_page_modules();
 
 			if (!$this->page_cache_is_valid() && !$this->request_is_bad()) {
-				$this->register_queued_includes();
+				$this->Theme->register_queued_includes();
 			}
 
 			$this->render();
@@ -383,7 +346,7 @@ class Biscuit extends ModuleCore implements Singleton {
 	 * @author Peter Epp
 	 */
 	private function request_token_check() {
-		if (Response::http_status() == 200 && !RequestTokens::check($this->Page->hyphenized_slug())) {
+		if (!RequestTokens::check($this->Page->hyphenized_slug())) {
 			Response::http_status(400);
 			Console::log("        BAD REQUEST! Token does not match!");
 			$this->_request_is_bad = true;
@@ -414,7 +377,8 @@ class Biscuit extends ModuleCore implements Singleton {
 	 * @author Peter Epp
 	 */
 	private function parse_request() {
-		$request_uri = trim(Request::uri(),'/');
+		Console::log("Parsing request URI");
+		$request_uri = trim(I18n::instance()->request_uri_without_locale(),'/');
 		if (empty($request_uri)) {
 			return;
 		}
@@ -507,513 +471,50 @@ class Biscuit extends ModuleCore implements Singleton {
 		return $this->user_input[$key];
 	}
 	/**
-	 * Add a JS file to the list of ones to include in the page
+	 * Register a JS file in the theme. This method exists for backwards compatibility
 	 *
 	 * @return void
+	 * @see Theme::register_js()
 	 * @param string $js_file The name of the file relative to the "scripts" folder
 	 * @param string $queue_for_later Optional - whether or not to add the file to the end of the list. This queues it to be registered after all module JS files have been registered
 	 * @author Peter Epp
 	 **/
 	public function register_js($position,$filename,$stand_alone = false,$queue_for_end = false) {
-		if ($position != "header" && $position != "footer") {
-			trigger_error("Biscuit::register_js() expects 'header' or 'footer' for the first argument", E_USER_ERROR);
-		}
-		if (!$this->has_registered_js($position,$filename)) {
-			if ($stand_alone) {
-				if ($queue_for_end) {
-					$this->_standalone_queued_js_files[$position][] = $filename;
-				} else {
-					$this->_standalone_js_files[$position][] = $filename;
-				}
-			} else {
-				if ($queue_for_end) {
-					$this->_queued_js_files[$position][] = $filename;
-				} else {
-					$this->_js_files[$position][] = $filename;
-				}
-			}
-		}
+		$this->Theme->register_js($position,$filename,$stand_alone = false,$queue_for_end = false);
 	}
 	/**
-	 * Whether or not a specified JavaScript file has already been registered
+	 * Add a CSS file to the list of ones to include in the page. This method exists for backwards compatibility
 	 *
-	 * @param string $owner_name Name of the package or module (case-sensitive)
-	 * @return bool
-	 * @author Peter Epp
-	 */
-	private function has_registered_js($position,$js_file) {
-		$in_js_files                   = (!empty($this->_js_files[$position]) && in_array($js_file,$this->_js_files[$position]));
-		$in_standalone_js_files        = (!empty($this->_standalone_js_files[$position]) && in_array($js_file,$this->_standalone_js_files[$position]));
-		$in_queued_js_files            = (!empty($this->_queued_js_files[$position]) && in_array($js_file,$this->_queued_js_files[$position]));
-		$in_queued_standalone_js_files = (!empty($this->_queued_standalone_js_files[$position]) && in_array($js_file,$this->_queued_standalone_js_files[$position]));
-		return ($in_js_files || $in_standalone_js_files || $in_queued_js_files || $in_queued_standalone_js_files);
-	}
-	/**
-	 * Return the array of JS files
-	 *
-	 * @return array
-	 * @author Peter Epp
-	 */
-	public function js_files($position) {
-		return $this->_js_files[$position];
-	}
-	/**
-	 * Add a CSS file to the list of ones to include in the page
-	 *
+	 * @see Theme::register_css()
 	 * @return void
 	 * @param string $css_file An associative array containing 'filename' and 'media' values, where media is the CSS media type (ie. "screen" or "print"). The filename must be relative to the "css" folder.
 	 * @param string $queue_for_later Optional - whether or not to add the file to the end of the list. This queues it to be registered after all module CSS files have been registered
 	 * @author Peter Epp
 	 **/
 	public function register_css($file,$queue_for_later = false) {
-		if (!$this->has_registered_css($file)) {
-			if ($queue_for_later) {
-				$this->_queued_css_files[] = $file;
-			}
-			else {
-				$this->_css_files[] = $file;
-			}
-		}
+		$this->Theme->register_css($file,$queue_for_later);
 	}
 	/**
-	 * Register an IE-specific CSS file
+	 * Register an IE-specific CSS file. This method exists for backwards compatibility
 	 *
+	 * @see Theme::register_ie_css()
 	 * @param string $file 
 	 * @return void
 	 * @author Peter Epp
 	 */
 	public function register_ie_css($file) {
-		$this->_ie_css_files[] = $file;
+		$this->Theme->register_ie_css($file);
 	}
 	/**
-	 * Register an IE6-specific CSS file
+	 * Register an IE6-specific CSS file. This method exists for backwards compatibility
 	 *
+	 * @see Theme::register_ie6_css()
 	 * @param string $file 
 	 * @return void
 	 * @author Peter Epp
 	 */
 	public function register_ie6_css($file) {
-		$this->_ie6_css_files[] = $file;
-	}
-	/**
-	 * Whethor or not a specified CSS file has already been registered
-	 *
-	 * @param string $css_file 
-	 * @return void
-	 * @author Peter Epp
-	 */
-	private function has_registered_css($css_file) {
-		return (in_array($css_file,$this->_queued_css_files) || in_array($css_file,$this->_css_files));
-	}
-	/**
-	 * Return the array of CSS files
-	 *
-	 * @return array
-	 * @author Peter Epp
-	 */
-	public function css_files() {
-		return $this->_css_files;
-	}
-	/**
-	 * Return the array of IE-specific CSS files
-	 *
-	 * @return array
-	 * @author Peter Epp
-	 */
-	public function ie_css_files() {
-		return $this->_ie_css_files;
-	}
-	/**
-	 * Return the array of IE6-specific CSS files
-	 *
-	 * @return array
-	 * @author Peter Epp
-	 */
-	public function ie6_css_files() {
-		return $this->_ie6_css_files;
-	}
-	/**
-	 * Register JS and CSS include files queued to render after module includes
-	 *
-	 * @return void
-	 * @author Peter Epp
-	 */
-	private function register_queued_includes() {
-		if (!empty($this->_queued_js_files)) {
-			foreach ($this->_queued_js_files as $position => $files) {
-				foreach ($files as $filename) {
-					$this->_js_files[$position][] = $filename;
-				}
-			}
-			$this->_queued_js_files = array();
-		}
-		if (!empty($this->_queued_standalone_js_files)) {
-			foreach ($this->_queued_standalone_js_files as $position => $files) {
-				foreach ($files as $filename) {
-					$this->_standalone_js_files[$position][] = $filename;
-				}
-			}
-			$this->_queued_standalone_js_files = array();
-		}
-		if (!empty($this->_queued_css_files)) {
-			foreach ($this->_queued_css_files as $file) {
-				$this->_css_files[] = $file;
-			}
-			$this->_queued_css_files = array();
-		}
-	}
-	/**
-	 * Prepare all registered JS and CSS include files that go in the <head> tag of the page and render their HTML
-	 *
-	 * @return string HTML code - JS script tags and CSS link tags
-	 * @author Peter Epp
-	 **/
-	public function set_js_and_css_includes() {
-		Console::log("    Rendering Javascript and CSS includes");
-		$this->prep_js_include_files('normal',$this->_js_files);
-		$this->prep_js_include_files('standalone',$this->_standalone_js_files);
-		$this->add_common_js_files();
-		$this->prep_css_include_files($this->_css_files);
-		$this->prep_css_include_files($this->_ie_css_files,true);
-		$this->prep_css_include_files($this->_ie6_css_files,true,6);
-		$this->add_theme_css_files();
-		$this->set_include_tags();
-	}
-	/**
-	 * Prep all the JS includes by checking for their existence in the system and prepending the filenames with the appropriate path
-	 *
-	 * @param string $type "js" or "css" (case-sensitive)
-	 * @param string $files The array of filenames to prep (usually Biscuit::js_files or Biscuit::css_files)
-	 * @param string $for_minification Whether or not to prepend the full file system path needed for minification
-	 * @return void
-	 * @author Peter Epp
-	 */
-	private function prep_js_include_files($type,$files_by_position) {
-		foreach ($files_by_position as $position => $files) {
-			foreach ($files as $index => $file) {
-				$filename = $this->set_js_include_file($file);
-				switch ($type) {
-					case 'normal':
-						$this->_js_files[$position][$index] = $filename;
-						break;
-					case 'standalone':
-						$this->_standalone_js_files[$position][$index] = $filename;
-						break;
-				}
-			}
-		}
-	}
-	/**
-	 * Check the existence of a CSS include file and if found prepend the appropriate path and return it
-	 *
-	 * @param string $type "js" or "css"
-	 * @param string $file Filename without path
-	 * @param string $for_minification Whether or not to prepend the full file system path needed for minification
-	 * @return void
-	 * @author Peter Epp
-	 */
-	private function set_js_include_file($filename) {
-		if ($include_file = Crumbs::file_exists_in_load_path($filename, SITE_ROOT_RELATIVE)) {
-			return $include_file;
-		}
-		else {
-			Console::log("        Missing JS file: ".$filename);
-			return false;
-		}
-	}
-	/**
-	 * Prep all the CSS includes by checking for their existence in the system and prepending the filenames with the appropriate path
-	 *
-	 * @param string $type "js" or "css" (case-sensitive)
-	 * @param string $files The array of filenames to prep (usually Biscuit::js_files or Biscuit::css_files)
-	 * @param string $for_minification Whether or not to prepend the full file system path needed for minification
-	 * @return void
-	 * @author Peter Epp
-	 */
-	private function prep_css_include_files($files, $for_ie = false, $ie_version = 'all') {
-		foreach ($files as $index => $file) {
-			$filename = $this->set_css_include_file($file);
-			if ($for_ie) {
-				if ($ie_version == 'all') {
-					$this->_ie_css_files[$index]['filename'] = $filename;
-				} else if ($ie_version == 6) {
-					$this->_ie6_css_files[$index]['filename'] = $filename;
-				}
-			} else {
-				$this->_css_files[$index]['filename'] = $filename;
-			}
-		}
-	}
-	/**
-	 * Check the existence of a CSS include file and if found prepend the appropriate path and return it
-	 *
-	 * @param string $type "js" or "css"
-	 * @param string $file Filename without path
-	 * @param string $for_minification Whether or not to prepend the full file system path needed for minification
-	 * @return void
-	 * @author Peter Epp
-	 */
-	private function set_css_include_file($file) {
-		if ($include_file = Crumbs::file_exists_in_load_path($file['filename'], SITE_ROOT_RELATIVE)) {
-			return $include_file;
-		}
-		else {
-			Console::log("        Missing CSS file: ".$file);
-			return false;
-		}
-	}
-	/**
-	 * Add common Javascript libraries to the list as required
-	 *
-	 * @param string $for_minification Whether or not to prepend the full file system path needed for minification
-	 * @return void
-	 * @author Peter Epp
-	 */
-	private function add_common_js_files() {
-		if (defined("USE_FRAMEWORK_JS") && USE_FRAMEWORK_JS == 1) {
-			$this->_js_files['footer'][] = "/framework/js/framework.js";
-			if (DEBUG) {
-				$this->_js_files['footer'][] = "/framework/js/debug_enabler.js";
-			}
-			$this->_js_files['footer'][] = "/framework/js/common.js";
-		}
-		if (file_exists($this->Page->full_theme_path()."/js/common.js")) {
-			$this->_js_files['footer'][] = $this->Page->theme_dir()."/js/common.js";
-		}
-		// Add any JS files found in the theme folder to the page footer, if not already registered:
-		$theme_js_files = FindFiles::ls($this->Page->full_theme_path(true).'/js',array('excludes' => 'common.js', 'types' => 'js'));
-		if (!empty($theme_js_files)) {
-			foreach ($theme_js_files as $js_file) {
-				$js_file_path = $this->Page->theme_dir().'/js/'.$js_file;
-				if (!in_array($js_file_path, $this->_js_files['footer']) && !in_array($js_file_path, $this->_js_files['header'])) {
-					$this->_js_files['footer'][] = $js_file_path;
-				}
-			}
-		}
-	}
-	/**
-	 * Add the site-specific CSS files to the list as required
-	 *
-	 * @param string $for_minification Whether or not to prepend the full file system path needed for minification
-	 * @return void
-	 * @author Peter Epp
-	 */
-	private function add_theme_css_files() {
-		$this->_css_files[] = array(
-			'filename' => $this->Page->theme_dir().'/css/styles_screen.css',
-			'media' => 'screen, projection'
-		);
-		if (!file_exists($this->Page->full_theme_path().'/css/forms.css')) {
-			// If a forms.css file doesn't exist in the theme's css folder (which will get included automatically), add the relative path to the default
-			// Biscuit theme forms css file so it will use that instead:
-			$this->_css_files[] = array(
-				'filename' => 'themes/default/css/forms.css',
-				'media' => 'screen'
-			);
-		}
-		if (file_exists($this->Page->full_theme_path().'/css/styles_print.css')) {
-			$this->_css_files[] = array(
-				'filename' => $this->Page->theme_dir().'/css/styles_print.css',
-				'media' => 'print'
-			);
-		}
-		if (file_exists($this->Page->full_theme_path().'/css/ie.css')) {
-			$this->_ie_css_files[] = array(
-				'filename' => $this->Page->theme_dir().'/css/ie.css',
-				'media' => 'print'
-			);
-		}
-		// Add any additional CSS files found in the theme folder (for all media):
-		$theme_css_files = FindFiles::ls($this->Page->full_theme_path(true).'/css',array('excludes' => array('styles_screen.css','styles_print.css','styles_tinymce.css','ie.css','ie6.css'),'types' => 'css'));
-		if (!empty($theme_css_files)) {
-			foreach ($theme_css_files as $css_file) {
-				if (!preg_match('/\.src\.css/si',$css_file)) {
-					$css_file_path = $this->Page->theme_dir().'/css/'.$css_file;
-					$this->_css_files[] = array(
-						'filename' => $css_file_path,
-						'media'    => 'all'
-					);
-				}
-			}
-		}
-	}
-	/**
-	 * Render JS and CSS include tags into vars for the view
-	 *
-	 * @return string HTML tags
-	 * @author Peter Epp
-	 */
-	private function set_include_tags() {
-		if ($this->Page->theme_favicon_url()) {
-			$this->register_header_tag('link',array(
-				'rel' => 'shortcut icon',
-				'href' => $this->Page->theme_favicon_url()
-			));
-		}
-		JsAndCssCache::run();
-		$action = $this->user_input('action');
-		if (empty($action)) {
-			$action = 'index';
-		}
-		$prefix = $this->Page->theme_name().'-'.$this->Page->hyphenized_slug().'-'.$action;
-		$header_js_file  = '/js/cache/'.$prefix.'_header_scripts.js';
-		$footer_js_file  = '/js/cache/'.$prefix.'_footer_scripts.js';
-		$screen_css_file = array('media' => 'screen, projection', 'filename' => '/css/cache/'.$prefix.'_screen_styles.css');
-		$print_css_file  = array('media' => 'print', 'filename' => '/css/cache/'.$prefix.'_print_styles.css');
-		$header_tags =	$this->render_js_or_css_tag('js',$header_js_file) .
-						$this->render_js_or_css_tag('css',$screen_css_file) .
-						$this->render_js_or_css_tag('css',$print_css_file) .
-						$this->render_ie_css() .
-						$this->render_standalone_js_tags('header');
-		$footer_tags =	$this->render_js_or_css_tag('js',$footer_js_file) .
-						$this->render_standalone_js_tags('footer');
-		Event::fire('build_extra_include_tags');
-		$header_tags .= $this->build_extra_include_tags();
-		$this->set_view_var('header_includes',$header_tags);
-		$this->append_view_var('footer',$footer_tags);
-	}
-	/**
-	 * Build extra script or link include tags
-	 *
-	 * @return string
-	 * @author Peter Epp
-	 */
-	private function build_extra_include_tags() {
-		$extra_includes_html = '';
-		if (!empty($this->_extra_header_tags)) {
-			foreach ($this->_extra_header_tags as $tag_data) {
-				if ($tag_data['tag_type'] == 'script' || $tag_data['tag_type'] == 'link' || $tag_data['tag_type'] == 'style') {
-					$extra_includes_html .= '<'.$tag_data['tag_type'];
-					if ($tag_data['tag_type'] == 'script') {
-						$extra_includes_html .= ' type="text/javascript" charset="utf-8"';
-					} else if ($tag_data['tag_type'] == 'style') {
-						$extra_includes_html .= ' type="text/css" charset="utf-8"';
-					}
-					if (!empty($tag_data['tag_attributes'])) {
-						foreach ($tag_data['tag_attributes'] as $attr_name => $attr_value) {
-							$extra_includes_html .= ' '.$attr_name.'="'.htmlentities($attr_value).'"';
-						}
-					}
-					if ($tag_data['tag_type'] == 'script' || $tag_data['tag_type'] == 'style') {
-						$extra_includes_html .= '>'.$tag_data['tag_content'].'</'.$tag_data['tag_type'];
-					}
-					$extra_includes_html .= '>';
-				}
-			}
-		}
-		return $extra_includes_html;
-	}
-	/**
-	 * Render a JS or CSS tag
-	 *
-	 * @param string $type "js" or "css"
-	 * @param string|array $file Full path to JS file or a CSS file info array
-	 * @return void
-	 * @author Peter Epp
-	 */
-	private function render_js_or_css_tag($type,$file) {
-		$returnHtml = '';
-		if ($type == "js") {
-			$tag_code = '
-	<script type="text/javascript" charset="utf-8" src="%s"></script>';
-		}
-		else {
-			$tag_code = '
-	<link rel="stylesheet" type="text/css" href="%s"%s charset="utf-8">';
-		}
-		if ($type == "js") {
-			$filename = $file;
-			$media = "";
-		}
-		else {
-			$filename = $file['filename'];
-			$media = ' media="'.$file['media'].'"';
-		}
-		if (!empty($filename)) {
-			$filename = $this->add_js_css_version_number($filename);
-			$returnHtml = sprintf($tag_code,$filename,$media);
-		}
-		return $returnHtml;
-	}
-	/**
-	 * Render tags for all the standalone JS files
-	 *
-	 * @param string $position 'header' or 'footer'
-	 * @return void
-	 * @author Peter Epp
-	 */
-	private function render_standalone_js_tags($position) {
-		$tags = '';
-		if (!empty($this->_standalone_js_files[$position])) {
-			foreach ($this->_standalone_js_files[$position] as $filename) {
-				if ($full_path = Crumbs::file_exists_in_load_path($filename, SITE_ROOT_RELATIVE)) {
-					$tags .= $this->render_js_or_css_tag('js',$filename);
-				}
-			}
-		}
-		return $tags;
-	}
-	/**
-	 * Render link tags for IE-specific CSS files if they exist
-	 *
-	 * @return void
-	 * @author Peter Epp
-	 */
-	private function render_ie_css() {
-		Console::log("    Rendering IE-specific CSS tags");
-		$returnHtml = '';
-		// IE stylesheet for any version of IE, if present
-		$ie_css_file = Crumbs::file_exists_in_load_path('css/cache/'.$this->Page->theme_name().'-'.$this->Page->hyphenized_slug().'_ie.css', SITE_ROOT_RELATIVE);
-		if ($ie_css_file) {
-			$returnHtml .= '
-	<!--[if IE]>';
-			$ie_css_file = $this->add_js_css_version_number($ie_css_file);
-			$returnHtml .= '
-		<link href="'.$ie_css_file.'" rel="stylesheet" type="text/css" media="all" charset="utf-8">';
-			$returnHtml .= '
-	<![endif]-->';
-		}
-		$theme_ie6_css = Crumbs::file_exists_in_load_path($this->Page->theme_dir().'/css/ie6.css', SITE_ROOT_RELATIVE);
-		// IE6-specific stylesheet, if present
-		if ($theme_ie6_css) {
-			$returnHtml .= '
-	<!--[if lt IE 7]>
-		<link href="'.$theme_ie6_css.'" rel="stylesheet" type="text/css" media="all" charset="utf-8">
-	<![endif]-->';
-		}
-		// IE6 stylesheet, if present
-		$ie6_css_file = Crumbs::file_exists_in_load_path('css/cache/'.$this->Page->theme_name().'-'.$this->Page->hyphenized_slug().'_ie6.css', SITE_ROOT_RELATIVE);
-		if ($ie6_css_file) {
-			$returnHtml .= '
-	<!--[if lt IE 7]>';
-			$ie6_css_file = $this->add_js_css_version_number($ie6_css_file);
-			$returnHtml .= '
-		<link href="'.$ie6_css_file.'" rel="stylesheet" type="text/css" media="all" charset="utf-8">';
-			$returnHtml .= '
-	<![endif]-->';
-		}
-		return $returnHtml;
-	}
-	/**
-	 * Add the JS and CSS version number to a JS or CSS filename, if applicable
-	 *
-	 * @param string $filename 
-	 * @return string
-	 * @author Peter Epp
-	 */
-	private function add_js_css_version_number($filename) {
-		if (defined("JS_AND_CSS_VERSION")) {
-			if (substr($filename,-2) == "js") {
-				$ext_length = 3;
-			} else if (substr($filename,-3) == "css") {
-				$ext_length = 4;
-			}
-			$src_ext = substr($filename,-$ext_length);
-			$src_base = substr($filename,0,-$ext_length);
-			$filename = $src_base."_v".JS_AND_CSS_VERSION.$src_ext;
-			return $filename;
-		}
-		return $filename;
+		$this->Theme->register_ie6_css($file);
 	}
 	/**
 	 * Render the web page. Static content passed as an argument takes first precedence, modules that request rendering take second, and the page itself takes third.
@@ -1091,11 +592,21 @@ class Biscuit extends ModuleCore implements Singleton {
 				Event::fire("compile_footer");
 				$this->append_view_var('footer',Crumbs::server_info_bar());
 				// Set HTML headers
-				$this->set_header_tags();
+				$this->Theme->set_header_tags();
 				// Set JS and CSS HTML includes
-				$this->set_js_and_css_includes();
+				$this->Theme->set_js_and_css_includes();
 			}
+			// Set Language to use for Javascript:
+			$locale = I18n::instance()->locale();
+			$lang_setting_js = <<<HTML
+<script type="text/javascript" charset="utf-8">
+	Biscuit.Language = "$locale";
+</script>
+HTML;
+			$this->append_view_var('footer',$lang_setting_js);
 			$view_vars = array();
+			$view_vars['lang']   = I18n::instance()->html_lang();
+			$view_vars['locale'] = I18n::instance()->locale();
 			if (empty($this->_view_vars['page_title'])) {
 				$view_vars['page_title'] = $this->Page->title();
 			}
@@ -1143,7 +654,7 @@ class Biscuit extends ModuleCore implements Singleton {
 			}
 			$page_content = $this->render_module_views($page_content, $view_vars);
 			if ($this->render_with_template()) {
-				$template_file = $this->select_template();
+				$template_file = $this->Theme->select_template();
 				Console::log("    Rendering template: ".$template_file);
 				$view_vars['page_content'] = $page_content;
 				$this->_compiled_content = Crumbs::capture_include($template_file, $view_vars);
@@ -1154,10 +665,10 @@ class Biscuit extends ModuleCore implements Singleton {
 			}
 			Event::fire('content_compiled');
 			// Eliminate all whitespace between HTML tags:
-			if (Response::is_html()) {
+			if (defined('MINIFY_OUTPUT') && MINIFY_OUTPUT == true && Response::is_html()) {
 				$this->_compiled_content = MinifyHtml::minify($this->_compiled_content);
 			}
-			if ($this->page_cache_allowed()) {
+			if ($this->page_cache_allowed() && Crumbs::ensure_directory(SITE_ROOT."/page_cache")) {
 				$this->Page->cache_write($this->_compiled_content);
 				Event::fire('page_cached');
 			}
@@ -1186,20 +697,6 @@ class Biscuit extends ModuleCore implements Singleton {
 		return $this->_compiled_content;
 	}
 	/**
-	 * Select a template for rendering. First checks for a template provided by the module for it's current action and if not present asks the Page
-	 * model to provide the template defined for the current page.
-	 *
-	 * @return void
-	 * @author Peter Epp
-	 */
-	private function select_template() {
-		$template = $this->select_primary_module_template();
-		if (empty($template)) {
-			$template = $this->Page->select_template();
-		}
-		return $template;
-	}
-	/**
 	 * Set or check whether or not to render the page with template
 	 *
 	 * @param bool $set_value Optional - provide this argument to set whether or not to render with template
@@ -1223,7 +720,7 @@ class Biscuit extends ModuleCore implements Singleton {
 			Response::content_type("text/javascript");
 		}
 		else {
-			$output = '<script type="text/javascript" language="javascript" charset="utf-8">'.$javascript."</script>";
+			$output = '<script type="text/javascript" language="javascript" charset="utf-8">'.$javascript.'</script>';
 		}
 		$this->render($output);
     }
@@ -1240,122 +737,25 @@ class Biscuit extends ModuleCore implements Singleton {
 		$this->render(Crumbs::to_json($values));
 	}
 	/**
-	 * Output the HTML meta tags and title tag for the page
+	 * Find site image in theme, if present, and return it's fully qualified URL. This method exists for backwards compatibility.
 	 *
-	 * @return void
-	 * @author Peter Epp
-	 */
-	
-	public function set_header_tags() {
-		$this->register_header_tag('meta',array(
-			'http-equiv' => 'Content-Type',
-			'content' => 'text/html; charset=utf-8'
-		));
-		$this->register_header_tag('meta',array(
-			'http-equiv' => 'Style-Content-Type',
-			'content' => 'text/css; charset=utf-8'
-		));
-		if ($this->Page->hidden()) {
-			$robots_tag_content = 'noindex,nofollow';
-		}
-		else {
-			$robots_tag_content = 'index,follow';
-		}
-		$this->register_header_tag('meta',array(
-			'name' => 'robots',
-			'content' => $robots_tag_content
-		));
-		if ($this->Page->keywords() != "") {
-			$this->register_header_tag('meta',array(
-				'name' => 'keywords',
-				'content' => htmlentities($this->Page->keywords())
-			));
-		}
-		if ($this->Page->description()) {
-			$this->register_header_tag('meta',array(
-				'name' => 'description',
-				'content' => htmlentities($this->Page->description())
-			));
-		}
-		// Add Open Graph tags:
-		if ($this->Page->slug() == 'index') {
-			$page_title = HOME_TITLE;
-		} else {
-			$page_title = $this->Page->title();
-		}
-		$this->register_header_tag('meta',array(
-			'property' => 'og:title',
-			'content' => $page_title
-		));
-		$this->register_header_tag('meta',array(
-			'property' => 'og:site_name',
-			'content' => SITE_TITLE
-		));
-		$site_image = $this->site_image_url();
-		if (!empty($site_image)) {
-			$this->register_header_tag('meta',array(
-				'property' => 'og:image',
-				'content' => $site_image
-			));
-		}
-		Event::fire('build_header_tags');
-		$head_tags = $this->build_meta_tags();
-		$head_tags .= '
-	<title>'.$this->Page->full_title().'</title>';
-		$this->set_view_var("header_tags",$head_tags);
-	}
-	/**
-	 * Find site image in theme, if present, and return it's fully qualified URL
-	 *
+	 * @see Theme::site_image_url()
 	 * @return void
 	 * @author Peter Epp
 	 */
 	public function site_image_url() {
-		$site_image = null;
-		$image_base_path = $this->Page->full_theme_path(true).'/images/site-image';
-		if (file_exists(SITE_ROOT.$image_base_path.'.jpg')) {
-			$site_image = $image_base_path.'.jpg';
-		} else if (file_exists(SITE_ROOT.$image_base_path.'.gif')) {
-			$site_image = $image_base_path.'.gif';
-		} else if (file_exists(SITE_ROOT.$image_base_path.'.png')) {
-			$site_image = $image_base_path.'.png';
-		}
-		return STANDARD_URL.$site_image;
+		return $this->Theme->site_image_url();
 	}
 	/**
-	 * Register the HTML code for an extra header tag
+	 * Register the HTML code for an extra header tag. This method exists for backwards compatibility.
 	 *
+	 * @see Theme::register_header_tag()
 	 * @param string $tag_html 
 	 * @return void
 	 * @author Peter Epp
 	 */
 	public function register_header_tag($tag_type,$tag_attributes,$tag_content = '') {
-		if ($tag_type == 'meta' || $tag_type == 'script' || $tag_type == 'link' || $tag_type == 'style') {
-			$this->_extra_header_tags[] = array('tag_type' => $tag_type,'tag_attributes' => $tag_attributes, 'tag_content' => $tag_content);
-		} else {
-			Console::log("Unable to register header tag of type '".$tag_type."'. Either it's not a valid type of tag or I don't know about it.");
-		}
-	}
-	/**
-	 * Compile the HTML code for any additional meta tags that were registered
-	 *
-	 * @return string
-	 * @author Peter Epp
-	 */
-	private function build_meta_tags() {
-		$extra_tag_html = '';
-		if (!empty($this->_extra_header_tags)) {
-			foreach ($this->_extra_header_tags as $tag_data) {
-				if ($tag_data['tag_type'] == 'meta') {
-					$extra_tag_html .= '<meta';
-					foreach ($tag_data['tag_attributes'] as $attr_name => $attr_value) {
-						$extra_tag_html .= ' '.$attr_name.'="'.htmlentities($attr_value).'"';
-					}
-					$extra_tag_html .= '>';
-				}
-			}
-		}
-		return $extra_tag_html;
+		$this->Theme->register_header_tag($tag_type,$tag_attributes,$tag_content);
 	}
 	/**
 	 * Set a variable to be local to the view at render time, replacing the value if it already exists
@@ -1392,6 +792,9 @@ class Biscuit extends ModuleCore implements Singleton {
 	 * @return void
 	 **/
 	public function set_title($title) {
+		if ($this->Page->has_navigation_label()) {
+			$this->Page->set_navigation_label($title);
+		}
 		$this->Page->set_title($title);
 	}
 	/**
@@ -1469,5 +872,13 @@ class Biscuit extends ModuleCore implements Singleton {
 		}
 		return $rewrite_rules;
 	}
+	/**
+	 * Return version number
+	 *
+	 * @return void
+	 * @author Peter Epp
+	 */
+	public static function version() {
+		return self::$_version;
+	}
 }	// END Biscuit class
-?>

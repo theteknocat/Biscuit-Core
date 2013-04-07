@@ -133,7 +133,10 @@ class AbstractModuleController extends AbstractModule {
 	 */	
 	public function run() {
 		if (!empty($this->_models)) {
-			$this->_primary_model = reset($this->_models);
+			// Ensure that the first element of the array is current:
+			reset($this->_models);
+			// Set the primary model name to the key name of the current element:
+			$this->_primary_model = key($this->_models);
 		}
 		if (!$this->is_primary()) {
 			if (method_exists($this,'action_secondary')) {
@@ -162,14 +165,14 @@ class AbstractModuleController extends AbstractModule {
 				}
 				else {
 					if ($this->Biscuit->ModuleAuthenticator()->user_is_logged_in()) {
-						Session::flash('user_error','You do not have permission to access the requested page.');
+						Session::flash('user_error',__("You do not have permission to access the requested page."));
 						if ($this->action() != 'index' && $this->user_can_index()) {
 							Response::redirect($this->url());
 						} else {
 							Response::redirect('/');
 						}
 					} else {
-						Session::flash('user_message','Please login to access the requested page.');
+						Session::flash('user_message',__("Please login to access the requested page."));
 						$access_level = Permissions::access_level_for($this,$this->action());
 						$access_info_factory = new ModelFactory('AccessLevels');
 						$access_info = $access_info_factory->find($access_level);
@@ -223,7 +226,8 @@ class AbstractModuleController extends AbstractModule {
 			throw new RecordNotFoundException();
 		}
 		$this->enforce_canonical_show_url($model);
-		$data_name = AkInflector::underscore(AkInflector::singularize(get_class($model)));
+		$model_name = $this->infer_model_name('show');
+		$data_name = AkInflector::underscore(AkInflector::singularize($model_name));
 		$this->set_show_title($model);
 		Event::fire('instantiated_model',$model);
 		$this->set_view_var($data_name,$model);
@@ -398,7 +402,7 @@ class AbstractModuleController extends AbstractModule {
 	 */
 	protected function set_show_title($model) {
 		$model_name = get_class($model);
-		$this->title(AkInflector::titleize('View '.AkInflector::singularize($model_name)));
+		$this->title(AkInflector::titleize(sprintf(__("View %s"),__(AkInflector::singularize($model_name)))));
 	}
 	/**
 	 * Delete an item and return a response based on the success or failure of the delete operation
@@ -424,7 +428,7 @@ class AbstractModuleController extends AbstractModule {
 			$url = $this->url($show_action,$model->id());
 			// Either the request is post or the delete_confirmed parameter was provided. Proceed with delete operation.
 			if (!$model->delete()) {
-				Session::flash('user_error', "Failed to remove ".AkInflector::titleize(AkInflector::singularize($model_name))." item with ID ".$model->id());
+				Session::flash('user_error', sprintf(__("Failed to remove the %s with ID %d"),__(AkInflector::titleize(AkInflector::singularize($model_name))),$model->id()));
 			} else {
 				Event::fire("successful_delete",$model,$url);
 			}
@@ -450,11 +454,11 @@ class AbstractModuleController extends AbstractModule {
 		if (!Request::is_post() && (empty($this->params['delete_confirmed']) || $this->params['delete_confirmed'] != 1)) {
 			$data_name = AkInflector::underscore(AkInflector::singularize($model_name));
 			// Delete was not confirmed because the request is GET and there was no delete_confirmed parameter. Render the delete confirmation page.
-			$this->title('Confirm Deletion');
+			$this->title(__("Confirm Deletion"));
 			if (method_exists($model,'__toString')) {
 				$representation = $model;
 			} else {
-				$representation = 'the '.AkInflector::humanize(AkInflector::underscore($model_name)).' with ID '.$model->id();
+				$representation = sprintf(__("the %s with ID %d",__(AkInflector::humanize(AkInflector::underscore($model_name))),$model->id()));
 			}
 			$this->set_view_var('representation',$representation);
 			$this->set_view_var('cancel_url',$this->return_url($model_name));
@@ -490,7 +494,7 @@ class AbstractModuleController extends AbstractModule {
 		$message = "";
 		$is_valid = false;
 		if (empty($this->params)) {
-			$message = 'No data submitted!';
+			$message = __("No data submitted!");
 		}
 		else {
 			$action = $this->action();
@@ -502,7 +506,7 @@ class AbstractModuleController extends AbstractModule {
 				if (substr($action,0,4) == 'edit') {
 					$is_valid = $this->validate_edit();
 				} else {
-					$this->_validation_errors[] = "ERROR! No validation method for the ".$action." action (I was looking for ".get_class($this)."::".$validation_method.")";
+					$this->_validation_errors[] = sprintf(__("ERROR! No validation method for the %s action. I was looking for %s->%s()"),$action,get_class($this),$validation_method);
 				}
 			}
 			else {
@@ -510,10 +514,9 @@ class AbstractModuleController extends AbstractModule {
 			}
 		}
 		if (!$is_valid) {
-			$message = "Please make the following corrections:\n\n-".implode("\n-", $this->_validation_errors);
 			Response::http_status(406);
 		}
-		$this->Biscuit->render_json(array("message" => $message, "invalid_fields" => $this->_invalid_fields));
+		$this->Biscuit->render_json(array("messages" => array_values($this->_validation_errors), "invalid_fields" => $this->_invalid_fields));
 	}
 	/**
 	 * Infer the model name based on the request
@@ -547,7 +550,12 @@ class AbstractModuleController extends AbstractModule {
 		if (!empty($this->params['return_url'])) {
 			return $this->params['return_url'];
 		} else {
-			return $this->url($this->get_index_action($model_name));
+			$index_action = $this->get_index_action($model_name);
+			if ($this->user_can($index_action)) {
+				return $this->url($index_action);
+			} else {
+				return '/';
+			}
 		}
 	}
 	/**
@@ -615,8 +623,9 @@ class AbstractModuleController extends AbstractModule {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	public function register_biscuit(&$biscuit_object) {
-		$this->Biscuit = &$biscuit_object;
+	public function register_biscuit($biscuit_object) {
+		$this->Biscuit = $biscuit_object;
+		$this->Theme   = $biscuit_object->Theme;
 	}
 	/**
 	 * Register a JS file with Biscuit
@@ -627,7 +636,7 @@ class AbstractModuleController extends AbstractModule {
 	 */
 	protected function register_js($position,$js_file,$stand_alone = false) {
 		$my_folder = $this->base_path();
-		$this->Biscuit->register_js($position,"{$my_folder}/js/".$js_file,$stand_alone);
+		$this->Theme->register_js($position,"{$my_folder}/js/".$js_file,$stand_alone);
 	}
 	/**
 	 * Register a CSS file with Biscuit
@@ -773,18 +782,13 @@ class AbstractModuleController extends AbstractModule {
 	 * @param string $attribute (optional)
 	 * @return string root relative URL
 	 **/
-	public function url($action=null, $id=null) {
-		if ($this->is_primary()) {
-			// If the module is currently primary we'll use the slug of the current page
-			$page_slug = $this->Biscuit->Page->slug();
+	public function url($action='index', $id=null) {
+		// Otherwise lookup the page on which it's primary and use that if not "*", otherwise current page
+		$primary_page = $this->primary_page();
+		if ($primary_page != '*') {
+			$page_slug = $primary_page;
 		} else {
-			// Otherwise lookup the page on which it's primary and use that if not "*", otherwise current page
-			$primary_page = $this->primary_page();
-			if ($primary_page != '*') {
-				$page_slug = $primary_page;
-			} else {
-				$page_slug = $this->Biscuit->Page->slug();
-			}
+			$page_slug = $this->Biscuit->Page->slug();
 		}
 		$base_action_name = $this->base_action_name($action);
 		$id_actions = array('show','edit','delete');
@@ -834,8 +838,7 @@ class AbstractModuleController extends AbstractModule {
 	protected function primary_page() {
 		if (empty($this->_primary_page)) {
 			$my_name = Crumbs::normalized_module_name($this);
-			$my_id = DB::fetch_one("SELECT `id` FROM `modules` WHERE `name` = ?",$my_name);
-			$my_primary_page = DB::fetch("SELECT `page_name` FROM `module_pages` WHERE `module_id` = ? AND `is_primary` = 1",$my_id);
+			$my_primary_page = DB::fetch("SELECT `page_name` FROM `module_pages` WHERE `module_id` = (SELECT `id` FROM `modules` WHERE `name` = '{$my_name}') AND `is_primary` = 1");
 			$this->_primary_page = reset($my_primary_page);	// Always take the first item in the results
 			Console::log("Primary page for ".$my_name." module: ".print_r($this->_primary_page,true));
 		}
@@ -879,7 +882,7 @@ class AbstractModuleController extends AbstractModule {
 			Session::flash_unset('user_success');
 			Session::flash_unset('user_message');
 			Session::flash_unset('user_error');
-			$this->Biscuit->render_js($this->params['success_callback'].';top.Biscuit.Session.KeepAlive.cancel_ping_timer();');		// Ensure that a ping timer, if started, gets cancelled
+			$this->Biscuit->render_js($this->params['success_callback'].';');		// Ensure that a ping timer, if started, gets cancelled
 		}
 		else {
 			if (!Request::is_ajax()) {
@@ -900,9 +903,10 @@ class AbstractModuleController extends AbstractModule {
 	 * @author Peter Epp
 	 */
 	protected function failed_save_response(&$model_ref,$item_name_for_view = "") {
+		$error_message = "<strong>".__("Please make the following corrections").":</strong><br><br>".implode("<br>",$model_ref->errors());
 		if (Request::is_ajaxy_iframe_post()) {
 			Session::flash_unset('user_message');
-			$output = 'alert("'.implode('\n-',$model_ref->errors()).'");';
+			$output = 'Biscuit.Crumbs.Alert("'.$error_message.'");';
 			if (empty($this->params['error_callback']) && $this->run_success_callback_on_error()) {
 				$output .= '
 '.$this->params['success_callback'];
@@ -911,11 +915,11 @@ class AbstractModuleController extends AbstractModule {
 				$output .= '
 '.$this->params['error_callback'];
 			}
-			$this->Biscuit->render_js($output.';top.Biscuit.Session.KeepAlive.cancel_ping_timer();');
+			$this->Biscuit->render_js($output.';');
 		}
 		else {
 			if (!Request::is_ajax()) {
-				Session::flash('user_error',"<strong>Please make the following corrections:</strong><br><br>".implode("<br>",$model_ref->errors()));
+				Session::flash('user_error',$error_message);
 			}
 			if (empty($item_name_for_view)) {
 				$item_name_for_view = strtolower(get_class($model_ref));
@@ -974,7 +978,7 @@ class AbstractModuleController extends AbstractModule {
 	 * @return string
 	 * @author Peter Epp
 	 */
-	private function get_index_action($model_name) {
+	protected function get_index_action($model_name) {
 		if (!empty($model_name) && $model_name != $this->primary_model()) {
 			return 'index_'.AkInflector::underscore($model_name);
 		}
@@ -998,12 +1002,12 @@ class AbstractModuleController extends AbstractModule {
 		return $folder;
 	}
 	/**
-	 * Return a list of the model names used by the module
+	 * Return the names of all the models used by the module
 	 *
 	 * @return array
 	 * @author Peter Epp
 	 */
-	public function model_names() {
+	public function all_model_names() {
 		$model_names = array();
 		if (!empty($this->_models)) {
 			foreach ($this->_models as $normalized_name => $actual_model_name) {
@@ -1084,4 +1088,3 @@ class AbstractModuleController extends AbstractModule {
 		}
 	}
 }
-?>

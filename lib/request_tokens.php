@@ -36,16 +36,14 @@ class RequestTokens {
 			Console::log("Ignoring request token, either per global setting or for the specified request");
 			return true;
 		}
-		if (Request::is_post() && !RequestTokens::matches($page_slug)) {
+		if (Request::is_post() && (!RequestTokens::matches($page_slug) || !RequestTokens::anti_is_empty())) {
 			return false;
 		}
-		// Only set a token if there is no token already set for the current request or the request is not Ajax. If we set a new token on every Ajax request,
-		// then an Ajaxy validation request will reset the token and prevent the form from being submitted again after the user has made their corrections.
-		if (!Request::is_post() || !RequestTokens::is_set($page_slug)) {
-			$new_token = RequestTokens::set($page_slug);
+		if (!Request::is_post() || !self::is_set($page_slug)) {
+			$new_token = self::set($page_slug);
 			if (DEBUG) {
 				$token_msg = "        Setting new request token for ".$page_slug;
-				if (!RequestTokens::is_set($page_slug)) {
+				if (!self::is_set($page_slug)) {
 					$token_msg .= " (first time)";
 				}
 				else {
@@ -53,13 +51,13 @@ class RequestTokens {
 				}
 				Console::log($token_msg);
 				$tokens = Session::get("request_tokens");
-				Console::log("        New token is: ".$tokens[RequestTokens::token_page_slug($page_slug)]);
+				Console::log("        New token is: ".$tokens[self::token_page_slug($page_slug)]);
 			}
 		} else {
-			if (RequestTokens::is_set($page_slug)) {
+			if (self::is_set($page_slug)) {
 				Console::log("        Token for ".$page_slug." is already set!");
-			} else if (Request::is_post()) {
-				Console::log("        Request is post, not setting token");
+			} else {
+				Console::log("        Request is POST, not setting token");
 			}
 		}
 		return true;
@@ -104,6 +102,16 @@ class RequestTokens {
 		return ($token_to_match == $hashed_token);
 	}
 	/**
+	 * Whether or not the request anti-spam field is empty. Empty is good. Not empty means it got filled out and that's bad.
+	 *
+	 * @return void
+	 * @author Peter Epp
+	 */
+	public static function anti_is_empty() {
+		$anti = Request::form('request_anti');
+		return empty($anti);
+	}
+	/**
 	 * Set a token in session
 	 *
 	 * @return void
@@ -134,6 +142,11 @@ class RequestTokens {
 		if ($page_slug == null) {
 			$page_slug = $Biscuit->Page->slug();
 		}
+		if (!RequestTokens::is_set($page_slug)) {
+			// Lazily set a new token if one is not already set. This is for cases where a form displayed on one page needs a token for
+			// submitting to another that has not yet been visited by the user.
+			RequestTokens::set($page_slug);
+		}
 		$token_slug = RequestTokens::token_page_slug($page_slug);
 		$tokens = Session::get("request_tokens");
 		return sha1($tokens[$token_slug]);
@@ -155,7 +168,6 @@ class RequestTokens {
 	 * @author Peter Epp
 	 */
 	public static function render_token_field($page_slug = null) {
-		return '<input type="hidden" name="request_token" value="'.self::get($page_slug).'">';
+		return '<input type="hidden" name="request_token" value="'.self::get($page_slug).'"><input type="text" name="request_anti" value="" style="position:absolute;left:-10000px;top:-10000px">';
 	}
 }
-?>

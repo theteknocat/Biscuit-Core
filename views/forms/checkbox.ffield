@@ -5,4 +5,5 @@ if ($unchecked_value !== null) {
 	<?php
 }
 ?>
-<input type="checkbox" name="<?php echo $name ?>" id="attr_<?php echo $id ?>" value="<?php echo $checked_value ?>"<?php if ($default_value == $checked_value) { echo ' checked="checked"'; } ?>><label for="attr_<?php echo $id ?>"<?php if (!$is_valid) { ?> class="error"<?php } ?>><?php if ($required) { echo '*'; } echo $label ?></label>
+<label>&nbsp;</label><span class="field-container<?php if (!$is_valid) { ?> error<?php } ?>" id="attr_<?php echo $id ?>"><input type="checkbox" name="<?php echo $name ?>" id="attr_<?php echo $id ?>-field" class="radio-button" value="<?php echo $checked_value ?>"<?php if ($default_value == $checked_value) { echo ' checked="checked"'; } ?>><label for="attr_<?php echo $id ?>-field" class="radio-button-label"><strong><?php if ($required) { echo '*'; } echo $label ?></strong></label></span>
+<span style="clear:both;display:block;height:0"></span>

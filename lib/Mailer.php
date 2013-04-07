@@ -32,7 +32,8 @@ class Mailer extends PHPMailer {
 	public function send_mail($template, $mailer_options, $local_variables=array()) {
 		Console::log("                        Mailer Initializing...");
 		$this->smtp_settings();
-		$args = func_get_args();
+		$mailer_options = $this->sanitize_options($mailer_options);
+
 		if (!empty($mailer_options['From'])) {
 			$this->From		= $mailer_options['From'];     
 		}
@@ -48,7 +49,14 @@ class Mailer extends PHPMailer {
 		else if (defined("OWNER_FROM") && OWNER_FROM != '') {
 			$this->FromName	= OWNER_FROM;
 		}
-		$this->Sender = OWNER_EMAIL;
+		if (!empty($mailer_options['ReplyTo'])) {
+			if (!empty($mailer_options['ReplyToName'])) {
+				$reply_to_name = $mailer_options['ReplyToName'];
+			} else {
+				$reply_to_name = '';
+			}
+			$this->AddReplyTo($mailer_options['ReplyTo'], $reply_to_name);
+		}
 		if (!empty($mailer_options['Subject'])) {
 			$this->Subject	= $mailer_options['Subject'];
 		}
@@ -59,7 +67,7 @@ class Mailer extends PHPMailer {
 			$this->Priority = $mailer_options['Priority'];
 		}
 		if (empty($mailer_options['To']) && empty($mailer_options['CC']) && empty($mailer_options['BCC'])) {
-			return 'Error sending mail: No recipients provided';
+			return __('Error sending mail: No recipients provided');
 		}
 		if (!empty($mailer_options['To'])) {
 			$toname = null;
@@ -106,7 +114,7 @@ class Mailer extends PHPMailer {
 			$this->WordWrap = EMAIL_WORDWRAP;
 		}
 		if (!$this->Send()) {
-			return 'Error sending mail: '.$this->ErrorInfo;
+			return sprintf(__("Error sending mail: %s"),__($this->ErrorInfo));
 		}
 		else {
 			return '+OK';
@@ -179,6 +187,21 @@ class Mailer extends PHPMailer {
 				$this->Password = SMTP_PASSWORD;
 			}
 		}
+	}
+	/**
+	 * Clean mailer options by stripping all line breaks and tabs from the values. This is to prevent bots from trying to inject their
+	 * own headers through fields in a form on the site that collects from or reply-to information from a user.
+	 *
+	 * @param array $mailer_options Dirty options
+	 * @return array Cleaned options
+	 * @author Peter Epp
+	 */
+	protected function sanitize_options($dirty_options) {
+		$sanitized_options = array();
+		foreach ($dirty_options as $key => $value) {
+			$sanitized_options[$key] = preg_replace('/[\r\n\t]+/',' ',$value);
+		}
+		return $sanitized_options;
 	}
 }
 ?>

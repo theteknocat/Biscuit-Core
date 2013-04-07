@@ -1,10 +1,12 @@
 # Compress output of all text file types:
 AddOutputFilterByType DEFLATE text/plain text/html text/css text/javascript application/x-javascript application/javascript application/rss+xml application/atom+xml application/xml text/xml
+# Compress font file types
+AddOutputFilter DEFLATE woff svg eot ttf properties
 
 # Add far future expires to static file types:
 <FilesMatch "\.(ico|pdf|flv|jpg|jpeg|png|gif|js|css|swf)$">
-	# Header set Expires "Thu, 15 Apr 2012 20:00:00 GMT"
-	# FileETag none
+	# Header set Expires "Thu, 15 Apr 2050 20:00:00 GMT"
+	# FileETag All
 </FilesMatch>
 
 # Define error documents (for odd cases where Biscuit doesn't handle it):
@@ -25,11 +27,11 @@ RewriteEngine On
 RewriteCond %{HTTP_HOST} ^www\.yourdomain\.com$
 RewriteRule ^(.*)$ http://yourdomain.com/$1 [L,R=301]
 
+# Cause requests for Messages files that will never exist to send a 410 Gone response
+RewriteRule Messages(_[a-z]{2})?\.properties - [G,L]
+
 # Shortcut to error 500 page
 RewriteRule ^error500$ /framework/views/error500.php [L]
-
-# Remove version number from JS or CSS filename:
-RewriteRule ^(.+)\_v([0-9]+)+\.(js|css)$ /$1.$3 [L]
 
 # Route all other requests to Biscuit:
 RewriteCond %{REQUEST_FILENAME} !-f

@@ -34,26 +34,22 @@
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
  * @version 2.0
  */
-class EventObserver implements SplObserver {
+class EventObserver {
 	/**
 	 * Act on a specified event if applicable. Invoked by EventDispatcher->notify()
 	 *
-	 * @param SplSubject $subject The subject being observed
+	 * @param Event $event The event object that was fired
 	 * @return void
 	 * @author Peter Epp
 	 */
-	public function update(SplSubject $event_dispatcher) {
-		$event_name = $event_dispatcher->getValue();
+	public function respond_to_event(Event $event) {
+		$event_name = $event->name();
 		$act_method = "act_on_".$event_name;
 		if (!method_exists($this,$act_method)) {
 			return;
 		}
 		$this->log_event($event_name);
-		$args = $event_dispatcher->getAdditionalArgs();
-		if (empty($args)) {
-			$args = array();
-		}
-		call_user_func_array(array($this,$act_method),$args);
+		call_user_func_array(array($this,$act_method),$event->arguments());
 	}
 	/**
 	 * Log a message about an observer invoked when an event is fired

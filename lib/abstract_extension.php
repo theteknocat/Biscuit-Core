@@ -49,8 +49,9 @@ class AbstractExtension extends EventObserver {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	public function register_biscuit(&$biscuit_object) {
-		$this->Biscuit = &$biscuit_object;
+	public function register_biscuit($biscuit_object) {
+		$this->Biscuit = $biscuit_object;
+		$this->Theme   = $biscuit_object->Theme;
 	}
 	/**
 	 * Register a JS file with Biscuit
@@ -61,7 +62,7 @@ class AbstractExtension extends EventObserver {
 	 */
 	protected function register_js($position,$js_file,$stand_alone = false) {
 		$my_folder = $this->base_path();
-		$this->Biscuit->register_js($position,"{$my_folder}/js/".$js_file,$stand_alone);
+		$this->Theme->register_js($position,"{$my_folder}/js/".$js_file,$stand_alone);
 	}
 	/**
 	 * Register a CSS file with Biscuit

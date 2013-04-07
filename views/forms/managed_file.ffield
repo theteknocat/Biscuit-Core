@@ -1,0 +1,12 @@
+<?php echo $TinyMce->render_standalone_file_browser_field($media_type,$id,$name,$label,$default_value,$is_required,$is_valid,array('maxlength' => '255')) ?>
+<span class="instructions">
+	<?php
+	if (empty($instructions)) {
+	?>
+	<strong><?php echo __("Remember") ?>:</strong> <?php echo __("if you later move, rename or delete the file using the file manager you will need to update this banner ad accordingly.") ?><br><br><strong><?php echo __("Important") ?>:</strong> <?php echo __("Before uploading your file please ensure that it is pre-sized to the dimensions of the region selected above.") ?>
+	<?php
+	} else {
+		echo __($instructions);
+	}
+	?>
+</span>

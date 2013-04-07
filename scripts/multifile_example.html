@@ -1,0 +1,33 @@
+<html>
+
+<head>
+	<!-- Include the javascript -->
+	<script language="javsacript" type="text/javascript" src="/framework/scripts/scriptaculous/lib/prototype.js"></script>
+	<script language="javsacript" type="text/javascript" src="/framework/scripts/scriptaculous/src/scriptaculous.js"></script>
+
+	<!-- JavaScript file(s) required for LightView -->
+	<script src="multifile.js"></script>
+</head>
+
+<body>
+
+<!-- This is the form -->
+<form enctype="multipart/form-data" action="your_script_here.script" method = "post">
+	<!-- The file element - NOTE: it has an ID -->
+	<input id="my_file_element" type="file" name="filename[]" >
+	<input type="submit">
+</form>
+Files:
+<!-- This is where the output will appear -->
+<div id="files_list"></div>
+<script>
+	// Create an instance of the multiSelector class, pass it the output target and the max number of files
+	var multi_selector = new MultiSelector( $( 'files_list' ), 50,{
+		name_prefix: 'filename',
+		use_array: true
+	});
+	// Pass in the file element
+	multi_selector.addElement( $( 'my_file_element' ) );
+</script>
+</body>
+</html>

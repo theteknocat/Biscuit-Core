@@ -1,0 +1,171 @@
+@charset "UTF-8";
+/* CSS Document */
+
+table.calendar {
+	border: 1px solid #59664b;
+	border-collapse: collapse;
+	color: #000000;
+	background: #eef6e5;
+	font-size: 12px;
+	font-family: Arial, helvetica, sans-serif;
+	margin: 0px;
+}
+table.calendar table {
+	margin: 0px
+}
+table.calendar tr {
+	padding: 0px;
+	margin: 0px;
+}
+table.calendar td {
+	padding: 0px;
+	margin: 0px;
+	border: none;
+	font-weight: normal;
+	vertical-align: middle;
+	text-align: center;
+}
+table.calendar tr.cal_row_reg td.cal_today {
+	border: 1px solid #59664b;
+	color: #000000;
+	background: #d7f8b1;
+	font-weight: bold;
+}
+table.calendar tr.cal_row_reg td.cal_nonmonthdays {
+	border: 1px solid #59664b;
+	color: #59664b;
+	background: #c7c7c7;
+}
+table.calendar td.cal_days {
+	border: 1px solid #59664b;
+}
+table.calendar tr.cal_row_reg td.cal_weekenddays {
+	border: 1px solid #59664b;
+	background: #dee9d2
+}
+table.calendar tr.cal_heading {
+	background: #d7ecd4
+}
+table.calendar tr.cal_title {
+	background: #cbe0f7;
+	border-bottom: 1px solid #59664b
+}
+table.calendar tr.cal_titlebar {
+	background: #c7c7c7;
+	border-bottom: 1px solid #59664b
+}
+table.calendar tr.cal_titlebar td {
+	text-align: left;
+}
+table.calendar tr.cal_title td select {
+	font-size: 8px;
+	font-weight: bold;
+	padding: 0px;
+	margin: 0px;
+}
+table.calendar th {
+	border: 1px solid #59664b;
+	text-align: center;
+	vertical-align: middle;
+}
+table.calendar tr.cal_row_reg {
+	cursor: pointer
+}
+table.calendar tr.cal_row_over {
+	background: #90c0f6; cursor: pointer
+}
+table.calendar tr.cal_row_sel {
+	background: #90c0f6;
+	cursor: default
+}
+table.calendar tr.cal_row_over td.cal_today, tr.cal_row_sel td.cal_today {
+	border: 1px solid #59664b;
+	background: #cbe0f7;
+	color: #000000;
+	font-weight: bold;
+}
+table.calendar tr.cal_row_over td.cal_weekenddays, tr.cal_row_sel td.cal_weekenddays {
+	border: 1px solid #59664b;
+	background: #7cb7dd;
+	color: #59664b;
+}
+table.calendar tr.cal_row_over td.cal_nonmonthdays, tr.cal_row_sel td.cal_nonmonthdays {
+	border: 1px solid #59664b;
+	background: #abb8c7;
+	color: #59664b;
+}
+table.calendar td.cal_day_over {
+	background: #90c0f6;
+	cursor: pointer
+}
+table.calendar td.cal_day_sel {
+	background: #90c0f6;
+	cursor: default
+}
+table.calendar tr.cal_row_reg td.cal_day_over.cal_today,table.calendar tr.cal_row_reg td.cal_day_sel.cal_today {
+	border: 1px solid #59664b;
+	background: #cbe0f7;
+	color: #000000;
+	font-weight: bold;
+}
+table.calendar tr.cal_row_reg td.cal_day_over.cal_weekenddays, table.calendar tr.cal_row_reg td.cal_day_sel.cal_weekenddays {
+	border: 1px solid #59664b;
+	background: #7cb7dd;
+	color: #59664b;
+}
+table.calendar tr.cal_row_reg td.cal_day_over.cal_nonmonthdays, table.calendar tr.cal_row_reg td.cal_day_sel.cal_nonmonthdays {
+	border: 1px solid #59664b;
+	background: #abb8c7;
+	color: #59664b;
+}
+table.calendar input {
+	margin: 0px;
+	padding: 0px;
+}
+table.calendar div.cal_day_content {
+	margin: 0px;
+	padding: 2px;
+}
+table.calendar div.cal_day_content.cal_day_event {
+	background: url(/images/Calendar/event_spot.png) top right no-repeat;
+}
+div#calendar_div {
+	position: absolute;
+	z-index: 900000;
+	border: none;
+}
+div#calendar_contents {
+	position: relative;
+	width: 198px;
+	border: none;
+}
+
+div#calendar_contents div#calendar-loading {
+	width: 200px;
+	padding: 15px 0;
+	text-align: center;
+	background: #fff;
+	border: 1px solid #000;
+}
+
+table.calendar div {
+	border: none;
+	height: 16px;
+}
+table.calendar tr.cal_title div {
+	height: 19px;
+	text-align: center;
+}
+div#cal_table {
+	position: relative;
+	z-index: 900010;
+	left: 0px;
+	top: 0px;
+}
+div.cal_shadow {
+	display: block;
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	background: #000000;
+}

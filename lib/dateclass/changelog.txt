@@ -1,0 +1,12 @@
+DateClass Library Changelog
+-------------------------------
+
+
+Version 1.0.2
+--------------
+Updated adodb date/time functions (adodb-time.inc.php) the the latest version 0.33 from the ADODB website
+
+
+Version 1.0 
+--------------
+Initial release

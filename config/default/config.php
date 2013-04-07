@@ -70,6 +70,11 @@ define('SERVER_TYPE','LOCAL_DEV');
  */
 define('SSL_DISABLED',false);
 
+/**
+ * Salt value used for hashing things uniquely to this site
+ */
+define("BISCUIT_HASH_SALT","");
+
 /*------- Optional constants: -------*/
 // Any of these constants can be left out. The documentation for each one details the default behaviour when they are not defined.
 
@@ -93,5 +98,4 @@ define("SMTP_USERNAME","");
  * SMTP password.  If not defined, authentication will not be used.
  */
 define("SMTP_PASSWORD","");
-
 ?>

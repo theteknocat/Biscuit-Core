@@ -6,7 +6,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: theme.php 14357 2011-10-28 22:23:04Z teknocat $
+ * @version 2.0 $Id: theme.php 14689 2012-06-27 21:27:54Z teknocat $
  */
 class Theme extends JsAndCssCache {
 	/**
@@ -76,6 +76,12 @@ class Theme extends JsAndCssCache {
 	 */
 	private $_og_type = 'website';
 	/**
+	 * Override value for the robots meta tag
+	 *
+	 * @var string
+	 */
+	private $_robots_meta_tag_value = '';
+	/**
 	 * List of all allowed Open Graph types as defined at {@link http://developers.facebook.com/docs/opengraph/#types}
 	 *
 	 * @var string
@@ -139,12 +145,48 @@ class Theme extends JsAndCssCache {
 	 */
 	private $_active_theme;
 	/**
+	 * Theme configuration data
+	 *
+	 * @var array
+	 */
+	private $_theme_configuration = array();
+	/**
+	 * Place to store the favicon URL
+	 *
+	 * @var string|false
+	 */
+	private $_favicon_url = false;
+	/**
 	 * Register event observer
 	 *
 	 * @author Peter Epp
 	 */
 	public function __construct() {
 		Event::add_observer($this);
+	}
+	/**
+	 * Check the full theme path is not empty and if it is, revert to "default" and display an error message
+	 *
+	 * @return void
+	 * @author Peter Epp
+	 */
+	public function initialize() {
+		// Check for theme path existence:
+		if (!$this->full_theme_path()) {
+			Session::flash('user_error', 'Invalid theme: '.$this->_active_theme.'. Reverting to default.');
+			$this->_active_theme = 'default';
+		}
+		// Load theme configuration:
+		$theme_info_file = $this->full_theme_path().'/theme.info';
+		if (file_exists($theme_info_file)) {
+			$this->_theme_configuration = parse_ini_file($theme_info_file);
+		} else {
+			$this->_theme_configuration = array(
+				'name' => ucwords(AkInflector::humanize($this->theme_name())),
+				'author' => 'Unknown',
+				'description' => 'No description'
+			);
+		}
 	}
 	/**
 	 * Return the name of the theme to use for the current page request
@@ -285,6 +327,9 @@ class Theme extends JsAndCssCache {
 	 * @author Peter Epp
 	 **/
 	public function register_js($position,$filename,$stand_alone = false,$queue_for_end = false) {
+		if (substr($filename, 0, 4) == 'http') {
+			$stand_alone = true;
+		}
 		if ($position != "header" && $position != "footer") {
 			trigger_error("Biscuit::register_js() expects 'header' or 'footer' for the first argument", E_USER_ERROR);
 		}
@@ -403,11 +448,13 @@ class Theme extends JsAndCssCache {
 			'http-equiv' => 'Content-Type',
 			'content' => 'text/html; charset=utf-8'
 		));
-		if ($this->_page()->hidden()) {
-			$robots_tag_content = 'noindex,nofollow';
-		}
-		else {
-			$robots_tag_content = 'index,follow';
+		Event::fire('set_robots_meta_tag', $this);
+		if (!empty($this->_robots_meta_tag_value)) {
+			$robots_tag_content = $this->_robots_meta_tag_value;
+		} else if ($this->_page()->hidden()) {
+			$robots_tag_content = 'noindex, nofollow';
+		} else {
+			$robots_tag_content = 'index, follow';
 		}
 		$this->register_header_tag('meta',array(
 			'name' => 'robots',
@@ -527,7 +574,7 @@ class Theme extends JsAndCssCache {
 		}
 	}
 	/**
-	 * Prepare all registered JS and CSS include files that go in the <head> tag of the page and render their HTML
+	 * Prepare all registered JS and CSS include files page and render their HTML
 	 *
 	 * @return string HTML code - JS script tags and CSS link tags
 	 * @author Peter Epp
@@ -581,6 +628,9 @@ class Theme extends JsAndCssCache {
 	 * @author Peter Epp
 	 */
 	private function set_js_include_path($filename) {
+		if (substr($filename, 0, 4) == 'http') {
+			return $filename;
+		}
 		if ($include_file = Crumbs::file_exists_in_load_path($filename, SITE_ROOT_RELATIVE)) {
 			return $include_file;
 		}
@@ -667,38 +717,37 @@ class Theme extends JsAndCssCache {
 	 */
 	private function add_theme_css_files() {
 		// Prepend jQuery UI styles:
-		if (file_exists($this->full_theme_path().'/css/jquery-ui.css')) {
-			// Use custom UI skin from theme, if present
+		if ($full_file_path = Crumbs::file_exists_in_load_path($this->theme_dir().'/css/jquery-ui.css', SITE_ROOT_RELATIVE)) {
 			array_unshift($this->_css_files, array(
-				'filename' => '/'.$this->theme_dir().'/css/jquery-ui.css',
+				'filename' => $full_file_path,
 				'media' => 'screen'
 			));
 		} else {
 			// Use default neutral one from the FW admin theme
 			array_unshift($this->_css_files, array(
-				'filename' => '/themes/sea_biscuit/css/jquery-ui.css',
+				'filename' => '/framework/themes/sea_biscuit/css/jquery-ui.css',
 				'media' => 'screen'
 			));
 		}
 		// Add forms stylesheet
-		if (file_exists($this->full_theme_path().'/css/forms.css')) {
+		if ($full_file_path = Crumbs::file_exists_in_load_path($this->theme_dir().'/css/forms.css', SITE_ROOT_RELATIVE)) {
 			// Use one from theme, if present
 			$this->_css_files[] = array(
-				'filename' => '/'.$this->theme_dir().'/css/forms.css',
+				'filename' => $full_file_path,
 				'media' => 'screen'
 			);
 		} else {
 			// Otherwise use default one from the FW admin theme
 			$this->_css_files[] = array(
-				'filename' => '/themes/sea_biscuit/css/forms.css',
+				'filename' => '/framework/themes/sea_biscuit/css/forms.css',
 				'media' => 'screen'
 			);
 		}
 		$this->_css_files[] = array(
-			'filename' => '/'.$this->theme_dir().'/css/styles_screen.css',
+			'filename' => Crumbs::file_exists_in_load_path($this->theme_dir().'/css/styles_screen.css', SITE_ROOT_RELATIVE),
 			'media' => 'screen, projection'
 		);
-		if (file_exists($this->full_theme_path().'/css/styles_print.css')) {
+		if ($full_theme_path = Crumbs::file_exists_in_load_path($this->theme_dir().'/css/styles_print.css', SITE_ROOT_RELATIVE)) {
 			$this->_css_files[] = array(
 				'filename' => '/'.$this->theme_dir().'/css/styles_print.css',
 				'media' => 'print'
@@ -709,7 +758,7 @@ class Theme extends JsAndCssCache {
 		if (!empty($theme_css_files)) {
 			foreach ($theme_css_files as $css_file) {
 				if (!preg_match('/\.src\.css/si',$css_file)) {
-					$css_file_path = '/'.$this->theme_dir().'/css/'.$css_file;
+					$css_file_path = Crumbs::file_exists_in_load_path($this->theme_dir().'/css/'.$css_file, SITE_ROOT_RELATIVE);
 					$css_file_info = array(
 						'filename' => $css_file_path,
 						'media'    => 'all'
@@ -750,6 +799,12 @@ class Theme extends JsAndCssCache {
 		$include_tags['footer'] .= $this->render_standalone_js_tags('footer');
 		Event::fire('build_extra_include_tags');
 		$include_tags['header'] .= $this->build_extra_include_tags();
+		if (!empty($this->_theme_configuration['uses_html5'])) {
+			$include_tags['header'] .= '
+	<!--[if lt IE 9]>
+		<script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+	<![endif]-->';
+		}
 		Biscuit::instance()->set_view_var('header_includes',$include_tags['header']);
 		Biscuit::instance()->append_view_var('footer',$include_tags['footer']);
 	}
@@ -780,20 +835,13 @@ class Theme extends JsAndCssCache {
 	private function build_uncached_include_tag_html() {
 		$tags = array('header' => '', 'footer' => '');
 		foreach ($this->_js_files['header'] as $js_file) {
-			if ($full_js_file_path = Crumbs::file_exists_in_load_path($js_file, SITE_ROOT_RELATIVE)) {
-				$tags['header'] .= $this->render_js_or_css_tag('js', $full_js_file_path);
-			}
+			$tags['header'] .= $this->render_js_or_css_tag('js', $js_file);
 		}
 		foreach ($this->_css_files as $css_file) {
-			if ($full_css_file_path = Crumbs::file_exists_in_load_path($css_file['filename'], SITE_ROOT_RELATIVE)) {
-				$actual_css_file = array('media' => $css_file['media'], 'filename' => $full_css_file_path);
-				$tags['header'] .= $this->render_js_or_css_tag('css', $actual_css_file);
-			}
+			$tags['header'] .= $this->render_js_or_css_tag('css', $css_file);
 		}
 		foreach ($this->_js_files['footer'] as $js_file) {
-			if ($full_js_file_path = Crumbs::file_exists_in_load_path($js_file, SITE_ROOT_RELATIVE)) {
-				$tags['footer'] .= $this->render_js_or_css_tag('js', $full_js_file_path);
-			}
+			$tags['footer'] .= $this->render_js_or_css_tag('js', $js_file);
 		}
 		return $tags;
 	}
@@ -872,9 +920,7 @@ class Theme extends JsAndCssCache {
 		$tags = '';
 		if (!empty($this->_standalone_js_files[$position])) {
 			foreach ($this->_standalone_js_files[$position] as $filename) {
-				if ($full_path = Crumbs::file_exists_in_load_path($filename, SITE_ROOT_RELATIVE)) {
-					$tags .= $this->render_js_or_css_tag('js',$filename);
-				}
+				$tags .= $this->render_js_or_css_tag('js',$filename);
 			}
 		}
 		return $tags;
@@ -942,6 +988,9 @@ class Theme extends JsAndCssCache {
 	 * @author Peter Epp
 	 */
 	private function add_js_css_version_number($filename) {
+		if (substr($filename, 0, 4) == 'http') {
+			return $filename;
+		}
 		return $filename.'?_v='.filemtime(SITE_ROOT.$filename);
 	}
 	/**
@@ -965,15 +1014,27 @@ class Theme extends JsAndCssCache {
 	 * @author Peter Epp
 	 */
 	private function _favicon_url() {
-		if (file_exists($this->full_theme_path()."/favicon.ico")) {
-			if (stristr($this->full_theme_path(),FW_ROOT)) {
-				$favicon_url = '/framework/'.$this->theme_dir().'/favicon.ico';
-			} else {
-				$favicon_url = '/'.$this->theme_dir().'/favicon.ico';
+		Event::fire('get_favicon_url', $this);
+		if (empty($this->_favicon_url)) {
+			if (file_exists($this->full_theme_path()."/favicon.ico")) {
+				if (stristr($this->full_theme_path(),FW_ROOT)) {
+					$this->_favicon_url = '/framework/'.$this->theme_dir().'/favicon.ico';
+				} else {
+					$this->_favicon_url = '/'.$this->theme_dir().'/favicon.ico';
+				}
 			}
-			return $favicon_url;
 		}
-		return false;
+		return $this->_favicon_url;
+	}
+	/**
+	 * Set the favicon URL to override the one that comes with the theme
+	 *
+	 * @param string $url 
+	 * @return void
+	 * @author Peter Epp
+	 */
+	public function set_favicon_url($url) {
+		$this->_favicon_url = $url;
 	}
 	/**
 	 * Find site image in theme, if present, and return it's fully qualified URL
@@ -1037,6 +1098,16 @@ class Theme extends JsAndCssCache {
 		if (in_array($type,$this->_allowed_og_types)) {
 			$this->_og_type = $type;
 		}
+	}
+	/**
+	 * Override the value of the robots meta tag
+	 *
+	 * @param string $value 
+	 * @return void
+	 * @author Peter Epp
+	 */
+	public function set_robots_meta_tag_value($value) {
+		$this->_robots_meta_tag_value = $value;
 	}
 	/**
 	 * Return an instance of the current page object

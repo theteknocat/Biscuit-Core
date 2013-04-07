@@ -6,7 +6,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: request_tokens.php 14357 2011-10-28 22:23:04Z teknocat $
+ * @version 2.0 $Id: request_tokens.php 14737 2012-11-30 22:56:56Z teknocat $
  */
 class RequestTokens {
 	/**

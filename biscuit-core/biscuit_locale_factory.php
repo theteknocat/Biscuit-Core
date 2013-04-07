@@ -1,5 +1,5 @@
 <?php
-class LocaleFactory extends ModelFactory {
+class BiscuitLocaleFactory extends ModelFactory {
 	/**
 	 * Find the default locale
 	 *

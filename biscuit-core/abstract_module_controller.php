@@ -12,7 +12,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: abstract_module_controller.php 14357 2011-10-28 22:23:04Z teknocat $
+ * @version 2.0 $Id: abstract_module_controller.php 14737 2012-11-30 22:56:56Z teknocat $
  */
 class AbstractModuleController extends AbstractModule {
 	/**
@@ -117,7 +117,7 @@ class AbstractModuleController extends AbstractModule {
 	 *
 	 * @var string
 	 */
-	protected $_successful_save_ajax_action = 'index';
+	protected $_successful_save_ajax_action;
 	/**
 	 * Action to run after delete action when it's an ajax request
 	 *
@@ -200,6 +200,9 @@ class AbstractModuleController extends AbstractModule {
 					Console::log("                        Dispatching to ".get_class($this)."::{$action_method}()");
 					$this->$action_method();
 				} else {
+					if (Request::is_ajax() && Request::type() != 'update') {
+						Response::http_status(403);
+					}
 					if ($this->Biscuit->ModuleAuthenticator()->user_is_logged_in()) {
 						Session::flash('user_error',__("You do not have permission to access the requested page."));
 						if ($this->action() != 'index' && $this->user_can_index()) {
@@ -245,12 +248,12 @@ class AbstractModuleController extends AbstractModule {
 			$data_name = $this->_active_data_name;
 			if (method_exists($this, 'set_index_sort_options')) {
 				$sort_options = $this->set_index_sort_options($model_name);
-			} else if (!empty($this->_index_sort_options[$model_name]) && is_array($this->_index_sort_options[$model_name])) {
+			} else if (is_array($this->_index_sort_options) && !empty($this->_index_sort_options[$model_name]) && is_array($this->_index_sort_options[$model_name])) {
 				$sort_options = $this->_index_sort_options[$model_name];
-			} else {
+			} else if (is_array($this->_index_sort_options) && !is_array(reset($this->_index_sort_options))) {
 				$sort_options = $this->_index_sort_options;
 			}
-			if (!is_array($sort_options)) {
+			if (!isset($sort_options) || !is_array($sort_options)) {
 				$sort_options = array();
 			}
 			$extra_conditions = '';
@@ -266,7 +269,17 @@ class AbstractModuleController extends AbstractModule {
 			$this->set_view_var(AkInflector::pluralize($data_name),$models);
 			$this->set_index_title();
 		}
-		$this->render();
+		if (Request::is_json()) {
+			$json_data = array();
+			if (!empty($models)) {
+				foreach ($models as $model) {
+					$json_data[] = $model->get_attributes();
+				}
+			}
+			$this->Biscuit->render_json($json_data);
+		} else {
+			$this->render();
+		}
 	}
 	/**
 	 * Respond to a show request
@@ -279,13 +292,23 @@ class AbstractModuleController extends AbstractModule {
 		if (!$model) {
 			throw new RecordNotFoundException();
 		}
-		$this->enforce_canonical_show_url($model);
+		if (!Request::is_ajax() && !Request::is_json()) {
+			$this->enforce_canonical_show_url($model);
+		}
 		$model_name = $this->_active_model_name;
 		$data_name = $this->_active_data_name;
 		$this->set_show_title($model);
 		Event::fire('instantiated_model',$model);
 		$this->set_view_var($data_name,$model);
-		$this->render();
+		if (Request::is_json()) {
+			$json_data = array();
+			if (!empty($model)) {
+				$json_data = $model->get_attributes();
+			}
+			$this->Biscuit->render_json($json_data);
+		} else {
+			$this->render();
+		}
 	}
 	/**
 	 * Check the URL for the show action for a model compared to the request URI.  If they don't match, redirect to the proper show URL
@@ -390,11 +413,18 @@ class AbstractModuleController extends AbstractModule {
 				Event::fire('failed_save',$model);
 				$this->failed_save_response($model,$data_name);
 			}
-		}
-		else {
+		} else {
 			Event::fire('instantiated_model',$model);
-			$this->set_view_var($data_name,$model);
-			$this->render();
+			if (Request::is_json()) {
+				$json_data = array();
+				if (!empty($model)) {
+					$json_data = $model->get_attributes();
+				}
+				$this->Biscuit->render_json($json_data);
+			} else {
+				$this->set_view_var($data_name,$model);
+				$this->render();
+			}
 		}
 	}
 	/**
@@ -482,7 +512,7 @@ class AbstractModuleController extends AbstractModule {
 	 * @author Peter Epp
 	 */
 	protected function set_show_title($model) {
-		$model_name = get_class($model);
+		$model_name = Crumbs::normalized_model_name($model);
 		$this->title(AkInflector::titleize(sprintf(__("View %s"),__(AkInflector::singularize($model_name)))));
 	}
 	/**
@@ -509,22 +539,31 @@ class AbstractModuleController extends AbstractModule {
 			$url = $this->url($show_action,$model->id());
 			// Either the request is post or the delete_confirmed parameter was provided. Proceed with delete operation.
 			if (!$model->delete()) {
-				Session::flash('user_error', sprintf(__("Failed to remove the %s with ID %d"),__(AkInflector::titleize(AkInflector::singularize($model_name))),$model->id()));
+				$error_message = sprintf(__("Failed to remove the %s with ID %d"),__(AkInflector::titleize(AkInflector::singularize($model_name))),$model->id());
+				if (!Request::is_ajax()) {
+					Session::flash('user_error', $error_message);
+					Response::redirect($this->return_url($model_name));
+				} else {
+					Response::http_status(409);
+					if (Request::is_json()) {
+						$this->Biscuit->render_json(array('error_message' => $error_message));
+					}
+				}
 			} else {
 				Event::fire("successful_delete",$model,$url);
-			}
-			if (!Request::is_ajax()) {
-				Response::redirect($this->return_url($model_name));
-			} else {
-				if (!empty($this->_post_delete_ajax_action)) {
-					$action = $this->_post_delete_ajax_action;
-					$action_method = 'action_'.$this->_post_delete_ajax_action;
-				} else {
-					$action = $this->get_index_action($model_name);
-					$action_method = 'action_'.$action;
+				if (!Request::is_ajax()) {
+					Response::redirect($this->return_url($model_name));
+				} else if (!Request::is_fire_and_forget()) {
+					if (!empty($this->_post_delete_ajax_action)) {
+						$action = $this->_post_delete_ajax_action;
+						$action_method = 'action_'.$this->_post_delete_ajax_action;
+					} else {
+						$action = $this->get_index_action($model_name);
+						$action_method = 'action_'.$action;
+					}
+					$this->action($action);
+					$this->$action_method();
 				}
-				$this->action($action);
-				$this->$action_method();
 			}
 		}
 	}
@@ -651,17 +690,14 @@ class AbstractModuleController extends AbstractModule {
 		}
 	}
 	/**
-	 * Put user input into the module's $params array
+	 * Put user input into the module's $params array and set active model and data parameters
 	 *
 	 * @param array $params 
 	 * @author Peter Epp
 	 */
 	public function set_params($params) {
 		$this->params = $params;
-		if (!$this->action()) {
-			$this->action('index');
-		}
-		$this->_active_model_name = $this->infer_model_name($this->base_action_name($this->action()));
+		$this->_active_model_name = $this->infer_model_name($this->base_action_name($this->action()), $this->action());
 		if (!empty($this->_active_model_name)) {
 			$this->_active_data_name = AkInflector::underscore(AkInflector::singularize($this->_active_model_name));
 			if (!empty($this->params[$this->_active_data_name])) {
@@ -697,10 +733,17 @@ class AbstractModuleController extends AbstractModule {
 					}
 				}
 				// Check if there's a custom factory for this model:
-				$custom_factory_name = $model_name."Factory";
-				$custom_factory_path = $my_folder."/factories/".AkInflector::underscore($custom_factory_name).".php";
-				if ($custom_factory_full_path = Crumbs::file_exists_in_load_path($custom_factory_path)) {
-					require_once $custom_factory_full_path;
+				$model_specific_factory_name = $model_name."Factory";
+				$model_specific_factory_path = $my_folder."/factories/".AkInflector::underscore($model_specific_factory_name).".php";
+				if ($model_specific_factory_full_path = Crumbs::file_exists_in_load_path($model_specific_factory_path)) {
+					if (stristr($model_specific_factory_full_path, '/customized/')) {
+						// If we're loading a customized model factory, we want to include the original model factory first if it exists
+						$model_specific_parent_factory_path = str_replace('/customized/', '/', $model_specific_factory_full_path);
+						if (file_exists($model_specific_parent_factory_path)) {
+							require_once $model_specific_parent_factory_path;
+						}
+					}
+					require_once $model_specific_factory_full_path;
 				}
 				$this->$model_label = ModelFactory::instance($model_name, ModelFactory::OVERRIDE_EXISTING);
 			}
@@ -988,8 +1031,16 @@ class AbstractModuleController extends AbstractModule {
 		else {
 			if (!Request::is_ajax()) {
 				Response::redirect($redirect_url);
-			}
-			else {
+			} else if (!Request::is_fire_and_forget()) {
+				if (empty($this->_successful_save_ajax_action)) {
+					// If the action to run on successful save ajax request has not been set, set it to the index action
+					$this->_successful_save_ajax_action = 'index';
+					if ($this->base_action_name($this->action()) != $this->action()) {
+						$this->_successful_save_ajax_action .= '_'.$this->_active_data_name;
+					}
+				}
+				Event::fire("post_edit_ajax_response", $this);
+				$this->set_params($this->params);
 				$this->action($this->_successful_save_ajax_action);
 				call_user_func(array($this,"action_".$this->_successful_save_ajax_action));
 			}
@@ -998,13 +1049,13 @@ class AbstractModuleController extends AbstractModule {
 	/**
 	 * Send a response for a failed save based on the request
 	 *
-	 * @param string $model_ref 
-	 * @param string $item_name_for_view 
+	 * @param string $model 
+	 * @param string $data_name 
 	 * @return void
 	 * @author Peter Epp
 	 */
-	protected function failed_save_response(&$model_ref,$item_name_for_view = "") {
-		$error_message = "<strong>".__("Please make the following corrections").":</strong><br><br>".implode("<br>",$model_ref->errors());
+	protected function failed_save_response($model, $data_name = null) {
+		$error_message = "<strong>".__("Please make the following corrections").":</strong><br><br>".implode("<br>",$model->errors());
 		if (Request::is_ajaxy_iframe_post()) {
 			Session::flash_unset('user_message');
 			$output = 'Biscuit.Crumbs.Alert("'.$error_message.'");';
@@ -1017,17 +1068,24 @@ class AbstractModuleController extends AbstractModule {
 '.$this->params['error_callback'];
 			}
 			$this->Biscuit->render_js($output.';');
-		}
-		else {
+		} else {
 			if (!Request::is_ajax()) {
 				Session::flash('user_error',$error_message);
+			} else {
+				Response::http_status(409);
 			}
-			if (empty($item_name_for_view)) {
-				$item_name_for_view = strtolower(get_class($model_ref));
+			if (!Request::is_fire_and_forget()) {
+				if (Request::is_json()) {
+					$this->Biscuit->render_json(array('error_message' => $error_message));
+				} else {
+					if (empty($data_name)) {
+						$data_name = $this->_active_data_name;
+					}
+					$this->_invalid_fields = $model->invalid_attributes();
+					$this->set_view_var($data_name, $model);
+					$this->render();
+				}
 			}
-			$this->_invalid_fields = $model_ref->invalid_attributes();
-			$this->set_view_var($item_name_for_view, $model_ref);
-			$this->render();
 		}
 	}
 	/**
@@ -1049,7 +1107,10 @@ class AbstractModuleController extends AbstractModule {
 	 * @author Lee O'Mara
 	 */
 	protected function set_view_var($key,$value) {
-		return $this->Biscuit->set_view_var($key,$value);
+		if (!Request::is_json()) {
+			return $this->Biscuit->set_view_var($key,$value);
+		}
+		return null;
 	}
 	/**
 	 * Return the base folder name for the module
@@ -1174,7 +1235,20 @@ class AbstractModuleController extends AbstractModule {
 	 * @author Peter Epp
 	 */
 	protected function act_on_build_breadcrumbs($Navigation) {
-		if ($this->action() != 'index' && $this->is_primary()) {
+		if ($this->is_primary() && $this->action() != 'index') {
+			if ($this->Biscuit->Page->slug() == 'index') {
+				// Before we add the actual action breadcrumb, we do some special logic to determine if we need to inject an index action breadcrumb.
+				// This accommodates the case where the module is installed as primary on the home page and we're performing an action other than "index"
+				// and the index action for the thing we are performing the action on is also not just "index" - eg. if we are doing show_some_model and the
+				// index action would therefore be index_some_model. We want to make sure the breadcrumbs give the user navigation to go back to the index
+				// action for the current model as well as back to the home page
+				$index_action_name = str_replace($this->base_action_name($this->action()),'index',$this->action());
+				if ($index_action_name != 'index' && $index_action_name != $this->action()) {
+					$crumb_label = ucwords(AkInflector::humanize(AkInflector::pluralize(AkInflector::underscore($this->_active_model_name))));
+					$Navigation->add_breadcrumb($this->url($index_action_name), $crumb_label);
+				}
+			}
+			// Now we can add the normal breadcrumb for the current action:
 			$link_label = $this->Biscuit->Page->title();	// We use the page title as the module's action method would have set it to override the default page title for the view prior to this call.
 			if (!empty($this->params['id']) || $this->params['id'] === 0 || $this->params['id'] === '0') {
 				$url = $this->url($this->action(),$this->params['id']);

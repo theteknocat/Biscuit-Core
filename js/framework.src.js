@@ -5,9 +5,10 @@
 // Author: Peter Epp
 
 var Biscuit = {
-	Version: '1.3.5',
+	Version: '1.3.6',
 	Debug: false,
 	Language: 'en_CA',
+	TranslationsLoaded: false,
 	Console: {
 		log: function(message) {
 			if (window.console != undefined && window.console.log != undefined && Biscuit.Debug) {
@@ -301,17 +302,6 @@ var Biscuit = {
 			if ($('#'+parent_id+'-throbber').length > 0) {
 				// If throbber is already present, just update it's message
 				$('#'+parent_id+'-throbber').text(message);
-				// Make sure the width is set to a minimum if the new message is empty:
-				if (message == '') {
-					$('#'+parent_id+'-throbber').css({
-						'width': '50px'
-					});
-				}
-				// Adjust left position accordingly:
-				var left_pos = (($('#'+parent_id+'-throbber-cover').width()/2)-($('#'+parent_id+'-throbber').width()/2))+'px';
-				$('#'+parent_id+'-throbber').css({
-					'left': left_pos
-				});
 			} else {
 				// Otherwise create and fade in the throbber
 				var curr_position = $('#'+parent_id).css('position');
@@ -344,6 +334,7 @@ var Biscuit = {
 							'position': 'absolute',
 							'left': '0',
 							'top': '0',
+							'width': '100%',
 							'padding': '50px 0 0',
 							'text-align': 'center',
 							'font-size': '20px',
@@ -359,7 +350,6 @@ var Biscuit = {
 					// If the throbber height is greater than the parent container height, remove the text then adjust the height if needed to fit only the
 					// throbber image:
 					$('#'+parent_id+"-throbber").text('').css({
-						'width': '50px',
 						'height': '1px'
 					});
 					if ($('#'+parent_id).height() < 50) {
@@ -367,17 +357,10 @@ var Biscuit = {
 							'height': '50px'
 						});
 					}
-				} else if (message == '') {
-					// Set width if there's no text content
-					$('#'+parent_id+'-throbber').css({
-						'width': '50px'
-					});
 				}
-				var left_pos = (($('#'+parent_id+'-throbber-cover').width()/2)-($('#'+parent_id+'-throbber').width()/2))+'px'
 				var top_pos = (($('#'+parent_id+'-throbber-cover').height()/2)-(($('#'+parent_id+'-throbber').height()+55)/2))+'px'
 				$('#'+parent_id+'-throbber').css({
 					'visibility': 'visible',
-					'left': left_pos,
 					'top': top_pos
 				});
 				$('#'+parent_id+'-throbber-cover').css({
@@ -569,9 +552,7 @@ var Biscuit = {
 			DisableSubmit: function(form_id) {
 				// Cycle through all elements with the classname of "SubmitButton" and disable them
 				window.top.$('#'+form_id+' .SubmitButton').each(function() {
-					if (Biscuit.Crumbs.Forms.btn_text[form_id] == undefined) {
-						Biscuit.Crumbs.Forms.btn_text[form_id] = $(this).val();
-					}
+					Biscuit.Crumbs.Forms.btn_text[form_id] = $(this).val();
 					$(this).blur();
 					$(this).attr('disabled','disabled');
 					$(this).addClass('working');
@@ -585,7 +566,7 @@ var Biscuit = {
 			EnableSubmit: function(form_id) {
 				// Cycle through all elements with the classname of "SubmitButton" and enable them
 				window.top.$('#'+form_id+' .SubmitButton').each(function() {
-					$(this).attr('disabled','');
+					$(this).removeAttr('disabled');
 					$(this).removeClass('working');
 					$(this).val(Biscuit.Crumbs.Forms.btn_text[form_id]);
 				});
@@ -678,12 +659,11 @@ var Biscuit = {
 
 			},
 			FieldFullAutoAdvance: function(element, e) {
-				Biscuit.Console.log("Key pressed: "+e.which);
 				var my_max_length = $(element).attr('maxlength');
 				var my_curr_value = $(element).val();
 				// Ignore all special keys (non characters):
 				var special_keys = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,33,34,35,36,37,38,39,40,41,42,43,44,45,46,224]
-				if (my_curr_value.length == my_max_length && !special_keys.inArray(e.which)) {
+				if (my_curr_value.length == my_max_length && $.inArray(e.which, special_keys) < 0) {
 					Biscuit.Console.log("Max field length reached and no special key pressed, advance to next field:");
 					var fields = $(element).parents('form:eq(0)').find('button,input,textarea,select');
 					var index = fields.index(element);
@@ -700,6 +680,13 @@ var Biscuit = {
 	Ajax: {
 		complete_callback: null,
 		Request: function(url,biscuit_request_type,options) {
+			if (!Biscuit.TranslationsLoaded) {
+				// Wait until translations have loaded
+				setTimeout(function() {
+					Biscuit.Ajax.Request(url,biscuit_request_type,options);
+				}, 50);
+				return;
+			}
 			this.update_container_id = null;
 			var proceed = true;
 			options.url = url;
@@ -741,8 +728,9 @@ var Biscuit = {
 				$('body').css({
 					'cursor': 'progress'
 				});
-				jQuery.ajax(options);
+				return jQuery.ajax(options);
 			}
+			return null;
 		},
 		SetRequestHeaders: function(biscuit_request_type,xhr) {
 			xhr.setRequestHeader('X-Biscuit-Ajax-Request', 'true');
@@ -753,6 +741,7 @@ var Biscuit = {
 				var container_id = login_form_id;
 			}
 			$('#'+login_form_id).submit(function() {
+				Biscuit.Console.log("Submit login form");
 				Biscuit.Crumbs.Forms.DisableSubmit(login_form_id);
 				var params = $(this).serialize();
 				var form_action = $(this).attr('action');
@@ -777,8 +766,10 @@ var Biscuit = {
 					},
 					error: function(xhr,text_status) {
 						Biscuit.Crumbs.Forms.EnableSubmit(login_form_id);
-						if (xhr.status == 400 || xhr.status == 406) {
+						if (xhr.status == 400 || xhr.status == 406 || xhr.status == 403) {
 							var response = jQuery.parseJSON(xhr.responseText);
+						}
+						if (xhr.status == 400 || xhr.status == 406) {
 							var message = response.message;
 							// Higlight and alert:
 							$('#'+container_id).effect('highlight', {color: '#ea4e2a'}, 800, function() {
@@ -786,6 +777,8 @@ var Biscuit = {
 									$('#attr_username').focus();
 								});
 							});
+						} else if (xhr.status == 403 && response.redirect_page != undefined && response.redirect_page != '') {
+							top.location.href = response.redirect_page;
 						} else {
 							var err_msg = xhr.status+" - "+xhr.statusText;
 							Biscuit.Crumbs.Alert(__('uncaught_exception',[err_msg]));
@@ -796,10 +789,22 @@ var Biscuit = {
 			});
 		},
 		DefaultErrorHandler: function(e, xhr, settings, exception) {
-			// Throw up an alert about an Ajax error if no error handler function was defined for the request
-			if (typeof(settings.error) != 'function' && xhr.status && xhr.status != 404 && xhr.status != 410) {
-				var err_msg = xhr.status+" - "+xhr.statusText;
-				Biscuit.Crumbs.Alert(__('uncaught_exception',[err_msg]));
+			if (typeof(settings.error) != 'function' && xhr.status) {
+				var redirected = false;
+				if (xhr.status == 403) {
+					var response = jQuery.parseJSON(xhr.responseText);
+					if (response.redirect_page != undefined && response.redirect_page != '') {
+						redirected = true;
+						top.location.href = response.redirect_page;
+					}
+				}
+				if (!redirected) {
+					// Throw up an alert about an Ajax error if no error handler function was defined for the request
+					if (xhr.status != 404 && xhr.status != 410) {
+						var err_msg = xhr.status+" - "+xhr.statusText;
+						Biscuit.Crumbs.Alert(__('uncaught_exception',[err_msg]));
+					}
+				}
 			}
 		},
 		DefaultSetup: function() {
@@ -964,7 +969,11 @@ Biscuit.Ajax.FormValidator.prototype = {
 			},
 			error: function(xhr, text_status) {
 				var response = jQuery.parseJSON(xhr.responseText);
-				Biscuit.Ajax.Alert("<h4><strong>"+__('error_occurred')+"</strong></h4><p>"+response.message+"</p>");
+				if (xhr.status == 403 && response.redirect_page != undefined && response.redirect_page != '') {
+					top.location.href = response.redirect_page;
+				} else {
+					Biscuit.Ajax.Alert("<h4><strong>"+__('error_occurred')+"</strong></h4><p>"+response.message+"</p>");
+				}
 			}
 		});
 	}
@@ -976,16 +985,6 @@ String.prototype.stripSlashes = function(str) {
 	str=str.replace(/\\\\/g,'\\');
 	str=str.replace(/\\0/g,'\0');
 	return str;
-}
-
-Array.prototype.inArray = function(value) {
-	for (i=0; i < this.length; i++) {
-		if (this[i] == value) {
-			return true;
-			break;
-		}
-	}
-	return false;
 }
 
 /*
@@ -1115,25 +1114,35 @@ Date.prototype.format = function (mask, utc) {
 };
 
 // Translation shortcut
-var __ = $.i18n.prop;
+var __ = function(placeholder_name, parameters) {
+	if (parameters != undefined) {
+		parameters.unshift(placeholder_name);
+	} else {
+		var parameters = [placeholder_name]
+	}
+	return $.i18n.prop.apply($, parameters);
+}
 
 $(document).ready(function() {
 	if (typeof(jQuery) == undefined) {
 		alert("jQuery is required for Framework scripts to function!");
 	} else {
+		// Initialize internationalization:
+		$.i18n.properties({
+			name:     'Messages',
+			path:     '/var/cache/js/',
+			mode:     'both',
+			language: Biscuit.Language,
+			callback: function() {
+				Biscuit.TranslationsLoaded = true;
+			}
+		});
 		// Apply common button styles:
 		Biscuit.Crumbs.ApplyCommonButtonStyles();
 		// Add delete confirmation handlers to any and all delete buttons:
 		Biscuit.Crumbs.Forms.AddDeleteConfirmationHandlers();
 		// Initialize default setup for Ajax requests
 		Biscuit.Ajax.DefaultSetup();
-		// Initialize internationalization:
-		$.i18n.properties({
-			name:     'Messages',
-			path:     '/var/cache/js/',
-			mode:     'both',
-			language: Biscuit.Language
-		});
 		// Initialize auto-advance of any text form fields when max length of the field is reached
 		$('input.text').keyup(function(e) {
 			Biscuit.Crumbs.Forms.FieldFullAutoAdvance(this, e);

@@ -7,7 +7,7 @@ require_once('biscuit-core/vendor/FirePHPCore/fb.php');
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: console.php 14682 2012-06-18 19:00:50Z teknocat $
+ * @version 2.0 $Id: console.php 14679 2012-06-18 18:37:41Z teknocat $
  **/
 class Console {
 	/**
@@ -88,11 +88,11 @@ class Console {
 		}
 		self::rotate_logs();
 		$message = "<!--- REQUEST: ".$request_uri."|".time()." ---!>";
-		self::log($message,false,'console',true);
-		self::log_error($message,false,true);
-		self::log_event($message,false,true);
-		self::log_query($message,false,true);
-		self::log($message,false,'var_dump',true);
+		self::log($message,false,'console',false);
+		self::log_error($message,false,false);
+		self::log_event($message,false,false);
+		self::log_query($message,false,false);
+		self::log($message,false,'var_dump',false);
 	}
 	/**
 	 * Delete log files that are over 2MB in size
@@ -121,11 +121,14 @@ class Console {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	public static function log_error($message,$force_log = false,$skip_fb_log = false) {
+	public static function log_error($message, $force_log = false, $fb_log_type = 'error', $fb_log = true) {
 		if (preg_match('/system-admin\/log_(viewer|delete)/', Request::uri())) {
 			return;
 		}
-		self::log($message,$force_log,"error",$skip_fb_log);
+		self::log($message, $force_log, "error", false);
+		if ($fb_log) {
+			self::fb_log($fb_log_type, $message);
+		}
 	}
 	/**
 	 * Shortcut for logging to the event log
@@ -135,11 +138,11 @@ class Console {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	public static function log_event($message,$force_log = false,$skip_fb_log = false) {
+	public static function log_event($message,$force_log = false,$fb_log = true) {
 		if (preg_match('/system-admin\/log_(viewer|delete)/', Request::uri())) {
 			return;
 		}
-		self::log($message,$force_log,"event",$skip_fb_log);
+		self::log($message,$force_log,"event",$fb_log);
 	}
 	/**
 	 * Shortcut for logging to the database query log
@@ -149,11 +152,11 @@ class Console {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	public static function log_query($message,$force_log = false,$skip_fb_log = false) {
+	public static function log_query($message,$force_log = false,$fb_log = false) {
 		if (preg_match('/system-admin\/log_(viewer|delete)/', Request::uri())) {
 			return;
 		}
-		self::log($message,$force_log,"query",$skip_fb_log);
+		self::log($message,$force_log,"query",$fb_log);
 	}
 	/**
 	 * Shortcut for logging to the variable dump log
@@ -172,7 +175,7 @@ class Console {
 		// Compose the log message in CSV format:
 		$message = '"'.$called_by.'","'.addslashes($description).'","'.addslashes(serialize($variable)).'"';
 		self::fb_log('var_dump',$description,$variable);
-		self::log($message,$force_log,"var_dump");
+		self::log($message,$force_log,"var_dump",false);
 	}
 	/**
 	 * Log any specified message to the error log file, but only when the logging level is greater than 2 (test or developer level) or the $force_log override is true.
@@ -182,7 +185,7 @@ class Console {
 	 * @param $message string The message to put in the log file
 	 * @param $force_log bool Optional - Whether or not to override the DETAILED_LOGGING option
 	 **/
-	public static function log($message,$force_log = false,$type = "console",$skip_fb_log = false) {
+	public static function log($message,$force_log = false,$type = "console",$fb_log = true) {
 		if (preg_match('/system-admin\/log_(viewer|delete)/', Request::uri())) {
 			return;
 		}
@@ -202,7 +205,7 @@ class Console {
 				$message = '--NOTICE - The message supplied for logging was empty.';
 			}
 			$message = $message."\n";
-			if (!$skip_fb_log && $type != "var_dump") {
+			if ($fb_log) {
 				self::fb_log($type,$message);
 			}
 			$log_file = Console::log_file($type);
@@ -226,14 +229,17 @@ class Console {
 		if (Request::is_ajax() && DEBUG && SERVER_TYPE != "PRODUCTION" && !Response::headers_sent()) {
 			switch ($type) {
 				case "console":
-					FB::log($message,"Message");
+					FB::info($message);
 					break;
 				case "event":
 				case "query":
 					FB::log($message,ucwords($type));
 					break;
+				case "warning":
+					FB::warn($message);
+					break;
 				case "error":
-					FB::error($message,"Error");
+					FB::error($message);
 					break;
 				case "var_dump":
 					FB::dump($message,$extra);
@@ -394,6 +400,7 @@ class Console {
 				'error_date'    => date("r"),
 				'full_url'      => 'http://'.Request::host().Request::uri(),
 				'username'      => $username,
+				'post_data'     => Request::form(),
 				'error_message' => ((!empty($error_info['errstr'])) ? $error_info['errstr'] : "None supplied."),
 				'backtrace'     => $backtrace
 			);
@@ -401,8 +408,8 @@ class Console {
 		}
 		$show_debug_info = ($config->has_critical_errors() || (DEBUG && SERVER_TYPE != "PRODUCTION"));
 		$html_message = <<<HTML
-<p><strong>File:</strong> {$error_info['errfile']}<br><strong>Line:</strong> {$error_info['errline']}</p>
-{$error_info['errstr']}
+<p><strong>File:</strong> {$error_info['errfile']}<br><strong>Line:</strong> {$error_info['errline']}<br>
+<strong>Message:</strong><br>{$error_info['errstr']}</p>
 HTML;
 		$error_output = array(
 			'message'       => $html_message,
@@ -469,7 +476,12 @@ HTML;
 	 * @author Peter Epp
 	 */
 	public static function send_error_report($report_data) {
-		$subject = "Application Error on ".Request::host();
+		if (defined('SITE_TITLE')) {
+			$site_name = SITE_TITLE;
+		} else {
+			$site_name = Request::host();
+		}
+		$subject = "Application Error on ".$site_name;
 		if (defined("TECH_EMAIL")) {
 			$recipient = TECH_EMAIL;
 		}
@@ -477,8 +489,8 @@ HTML;
 			Console::log_error("Error report could not be sent because no tech email address is defined.",true);
 			return false;
 		}
-		$from_email = "noreply@".Request::header("Host");
-		$from_name = Request::header("Host")." Web Server";
+		$from_email = "noreply@".Request::host();
+		$from_name = $site_name." Web Server";
 		$options = array(
 			"To"          => $recipient,
 			"From"        => $from_email,
@@ -544,7 +556,12 @@ HTML;
 			}
 			$erroro_type =
 			$error_msg = '"'.$error_type.'","'.addslashes($errstr).'","'.$errfile.'","'.$errline.'"';
-			self::log_error($error_msg,true);
+			if ($is_notice || $errno == E_WARNING || $errno == E_USER_WARNING) {
+				$fb_log_type = 'warning';
+			} else {
+				$fb_log_type = 'error';
+			}
+			self::log_error($error_msg, true, $fb_log_type);
 		}
 		if ($errno == E_ERROR || $errno == E_USER_ERROR) {
 			$error_info = array(

@@ -7,7 +7,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.2 $Id: i18n.php 13959 2011-08-08 16:25:15Z teknocat $
+ * @version 2.2 $Id: i18n.php 14752 2012-12-01 21:28:48Z teknocat $
  */
 class I18n extends EventObserver implements Singleton {
 	/**
@@ -53,7 +53,7 @@ class I18n extends EventObserver implements Singleton {
 	 */
 	private function __construct() {
 		if (!Session::get('installer_running')) {
-			$this->Locale = ModelFactory::instance('Locale');
+			$this->Locale = ModelFactory::instance('BiscuitLocale');
 			$this->_default_locale = $this->Locale->find_default();
 		}
 		Event::add_observer($this);
@@ -306,6 +306,7 @@ class I18n extends EventObserver implements Singleton {
 			$request_uri = Crumbs::strip_query_var_from_uri(Request::uri(),'_');
 			Console::log("Responding to JS translations file request: ".$request_uri);
 			if ($request_uri == '/var/cache/js/Messages_'.$this->_curr_locale->code().'.properties') {
+				Biscuit::instance()->set_never_cache(); // We don't want this stored in the page cache
 				Console::log("Generate JS translations for ".$this->_curr_locale->code());
 				// Start with core messages:
 				$js_properties_output = Crumbs::capture_include('framework/js/Messages.properties.php');
@@ -321,18 +322,24 @@ class I18n extends EventObserver implements Singleton {
 				$modules = $module_factory->find_all_by('installed',1);
 				if (!empty($modules)) {
 					foreach ($modules as $module) {
+						$customized_properties_file = 'modules/customized/'.AkInflector::underscore($module->name()).'/js/Messages.properties.php';
 						$properties_file = 'modules/'.AkInflector::underscore($module->name()).'/js/Messages.properties.php';
-						if (Crumbs::file_exists_in_load_path($properties_file)) {
+						if (Crumbs::file_exists_in_load_path($customized_properties_file)) {
+							$js_properties_output .= "\n\n# ".ucwords(AkInflector::humanize(AkInflector::underscore($module->name())))." module translations:\n".Crumbs::capture_include($customized_properties_file);
+						} else if (Crumbs::file_exists_in_load_path($properties_file)) {
 							$js_properties_output .= "\n\n# ".ucwords(AkInflector::humanize(AkInflector::underscore($module->name())))." module translations:\n".Crumbs::capture_include($properties_file);
-						} 
+						}
 					}
 				}
 				$extension_factory = ModelFactory::instance('Extension');
 				$extensions = $extension_factory->find_all();
 				if (!empty($extensions)) {
 					foreach ($extensions as $extension) {
+						$customized_properties_file = 'extensions/customized/'.AkInflector::underscore($extension->name()).'/js/Messages.properties.php';
 						$properties_file = 'extensions/'.AkInflector::underscore($extension->name()).'/js/Messages.properties.php';
-						if (Crumbs::file_exists_in_load_path($properties_file)) {
+						if (Crumbs::file_exists_in_load_path($customized_properties_file)) {
+							$js_properties_output .= "\n\n# ".ucwords(AkInflector::humanize(AkInflector::underscore($extension->name())))." extension translations:\n".Crumbs::capture_include($customized_properties_file);
+						} else if (Crumbs::file_exists_in_load_path($properties_file)) {
 							$js_properties_output .= "\n\n# ".ucwords(AkInflector::humanize(AkInflector::underscore($extension->name())))." extension translations:\n".Crumbs::capture_include($properties_file);
 						} 
 					}

@@ -6,7 +6,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: cache_control.php 14353 2011-10-27 19:49:17Z teknocat $
+ * @version 2.0 $Id: cache_control.php 14723 2012-11-28 17:15:25Z teknocat $
  */
 class CacheControl extends EventObserver {
 	/**
@@ -88,7 +88,7 @@ class CacheControl extends EventObserver {
 	 * @author Peter Epp
 	 */
 	protected function page_cache_allowed() {
-		if (!$this->render_with_template() || (defined("NO_CACHE") && NO_CACHE === true) || Request::user_input('no_cache')) {
+		if ((defined("NO_CACHE") && NO_CACHE === true) || Request::user_input('no_cache')) {
 			return false;
 		}
 		return (!Request::is_post() && !$this->_never_cache_page && !Session::has_flash_vars());
@@ -110,7 +110,7 @@ class CacheControl extends EventObserver {
 	 * @author Peter Epp
 	 */
 	protected function browser_cache_allowed() {
-		return ($this->page_cache_allowed() && !Request::is_ajax() && !Session::has_flash_vars() && !Session::flash_vars_just_cleared());
+		return (($this->page_cache_allowed() || Request::is_ajax()) && !Session::has_flash_vars() && !Session::flash_vars_just_cleared());
 	}
 	/**
 	 * Add a timestamp to the list of other timestamps used to check if the page has been updated. This method should be called by any modules responding to
@@ -193,13 +193,17 @@ class CacheControl extends EventObserver {
 		if (count($request_uri_bits) > 1) {
 			$cache_filename .= $request_uri_bits[1];
 		}
+		$cache_filename .= Request::type();
 		if (Request::is_ajax()) {
 			$cache_filename .= 'ajax';
+		}
+		if ($this->ModuleAuthenticator()->user_is_logged_in()) {
+			$cache_filename .= $this->ModuleAuthenticator()->active_user()->id();
 		}
 		$filename_hash = sha1($cache_filename);
 		$cache_directory = $this->_cache_base_dir().'/'.$curr_locale;
 		Crumbs::ensure_directory($cache_directory);
-		$full_cache_file_path = $cache_directory.'/'.$filename_hash.".html";
+		$full_cache_file_path = $cache_directory.'/'.$filename_hash.".cache";
 		return $full_cache_file_path;
 	}
 	/**

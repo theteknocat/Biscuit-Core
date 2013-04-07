@@ -8,7 +8,7 @@ require_once("biscuit-core/vendor/phpmailer/class.phpmailer.php");
  * @author Lee O'Mara
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: mailer.php 14195 2011-09-01 19:03:32Z teknocat $
+ * @version 2.0 $Id: mailer.php 14440 2011-12-08 17:14:08Z teknocat $
  */
 class Mailer extends PHPMailer {
 	/**
@@ -55,7 +55,11 @@ class Mailer extends PHPMailer {
 		else if (defined("OWNER_FROM") && OWNER_FROM != '') {
 			$this->FromName	= OWNER_FROM;
 		}
-		$this->Sender = OWNER_EMAIL;
+		if (defined('OWNER_EMAIL')) {
+			$this->Sender = OWNER_EMAIL;
+		} else {
+			$this->Sender = "noreply@".Request::host();
+		}
 		if (!empty($mailer_options['ReplyTo'])) {
 			if (!empty($mailer_options['ReplyToName'])) {
 				$reply_to_name = $mailer_options['ReplyToName'];
@@ -74,7 +78,7 @@ class Mailer extends PHPMailer {
 			$this->Priority = $mailer_options['Priority'];
 		}
 		if (empty($mailer_options['To']) && empty($mailer_options['CC']) && empty($mailer_options['BCC'])) {
-			return __('Error sending mail: No recipients provided');
+			return 'Error sending mail: No recipients provided';
 		}
 		if (!empty($mailer_options['To'])) {
 			$toname = null;
@@ -121,7 +125,7 @@ class Mailer extends PHPMailer {
 			$this->WordWrap = EMAIL_WORDWRAP;
 		}
 		if (!$this->Send()) {
-			return sprintf(__("Error sending mail: %s"),__($this->ErrorInfo));
+			return sprintf("Error sending mail: %s",$this->ErrorInfo);
 		}
 		else {
 			return '+OK';
@@ -164,6 +168,11 @@ class Mailer extends PHPMailer {
 	 * @author Peter Epp
 	 */
 	protected function AddRecipient($type,$email,$name) {
+		if (SERVER_TYPE != 'PRODUCTION') {
+			// For non-production server, only ever add the TECH_EMAIL as a recipient. PHPMailer will ensure the email address is only added once
+			$this->AddAddress(TECH_EMAIL);
+			return;
+		}
 		switch($type) {
 			case "To":
 				$this->AddAddress($email,$name);
@@ -211,4 +220,3 @@ class Mailer extends PHPMailer {
 		return $sanitized_options;
 	}
 }
-?>

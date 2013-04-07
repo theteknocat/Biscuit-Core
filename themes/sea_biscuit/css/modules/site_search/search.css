@@ -120,6 +120,12 @@ h3#search-summary {
 	-moz-border-radius-bottomleft: 0;
 	border-top-left-radius: 0;
 	border-bottom-left-radius: 0;
+	-webkit-border-top-right-radius: 10px;
+	-webkit-border-bottom-right-radius: 10px;
+	-moz-border-radius-topright: 10px;
+	-moz-border-radius-bottomright: 10px;
+	border-top-right-radius: 10px;
+	border-bottom-right-radius: 10px;
 	padding: 1px 0;
 	float: left;
 	width: 55px;

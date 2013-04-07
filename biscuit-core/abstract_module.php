@@ -6,7 +6,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: abstract_module.php 14357 2011-10-28 22:23:04Z teknocat $
+ * @version 2.0 $Id: abstract_module.php 14737 2012-11-30 22:56:56Z teknocat $
  */
 class AbstractModule extends EventObserver {
 	/**
@@ -40,6 +40,13 @@ class AbstractModule extends EventObserver {
 				$action_name = str_replace("view","show",$action_name);
 			}
 			return $this->user_can($action_name);
+		} elseif (substr($method_name,0,7) == 'action_') {
+			// If we got here, the requested action method wasn't found. Let's see if the base action method exists, and if so run that:
+			$base_action_name = $this->base_action_name($this->action());
+			$base_action_method = 'action_'.$base_action_name;
+			if (method_exists($this, $base_action_method)) {
+				call_user_func_array(array($this, $base_action_method), $args);
+			}
 		}
 		// Throw an exception if we couldn't find the appropriate method to call
 		throw new ModuleException("Undefined method: ".get_class($this)."::".$method_name);

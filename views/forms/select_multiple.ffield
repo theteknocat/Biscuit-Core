@@ -1,7 +1,23 @@
 <label for="attr_<?php echo $id ?>"<?php if (!$is_valid) { ?> class="error"<?php } ?>><?php if ($required) { echo '*'; } echo $label ?>:</label>
 <select<?php if (!$is_valid) { ?> class="error"<?php } ?> name="<?php echo $name ?>" id="attr_<?php echo $id ?>" multiple size="<?php echo $height ?>">
 	<?php
+	$last_group_label = '';
+	$in_group = false;
 	foreach ($data_set as $item) {
+		if ($in_group && (empty($item['group_label']) || $item['group_label'] != $last_group_label)) {
+			?>
+	</optgroup>
+			<?php
+			$in_group = false;
+			$last_group_label = '';
+		}
+		if (!empty($item['group_label']) && $item['group_label'] != $last_group_label) {
+			?>
+	<optgroup label="<?php echo $item['group_label']; ?>">
+			<?php
+			$last_group_label = $item['group_label'];
+			$in_group = true;
+		}
 		?>
 	<option value="<?php echo $item['value'] ?>"<?php if (is_array($default_value) && in_array($item['value'],$default_value)) { echo ' selected="selected"'; } ?>><?php echo $item['label'] ?></option>
 		<?php

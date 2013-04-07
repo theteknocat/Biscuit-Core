@@ -7,7 +7,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: file_upload.php 14357 2011-10-28 22:23:04Z teknocat $
+ * @version 2.0 $Id: file_upload.php 14737 2012-11-30 22:56:56Z teknocat $
  **/
 class MultiFileUpload {
 
@@ -166,7 +166,7 @@ class MultiFileUpload {
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: file_upload.php 14357 2011-10-28 22:23:04Z teknocat $
+ * @version 2.0 $Id: file_upload.php 14737 2012-11-30 22:56:56Z teknocat $
  */
 class FileUpload {
 	/**
@@ -231,6 +231,12 @@ class FileUpload {
 	 * @var string
 	 */
 	private $_image_processing_error = false;
+	/**
+	 * Whether or not to auto-process images. Always does by default, can be overridden by a module at processing time
+	 *
+	 * @var bool
+	 */
+	private $_auto_process_images = true;
 
 	/**
 	 * Handle a file upload.
@@ -280,15 +286,9 @@ class FileUpload {
 			return;
 		}
 
-		$this->upload_dir = SITE_ROOT.$upload_dir;
+		$this->upload_dir = rtrim(SITE_ROOT.$upload_dir, '/');
 		$this->file_name = $this->uploaded_file['name'];
-		$this->type = "";
-		if ($this->is_valid_image($this->uploaded_file['tmp_name'])) {
-			$this->type = "image";
-		}
-		if ($this->ensure_directory_setup()) {
-			$this->process_uploaded_file();
-		}
+		$this->process_uploaded_file();
 	}
 	/**
 	 * Process the uploaded file
@@ -316,6 +316,15 @@ class FileUpload {
 
 		chmod($full_temp_file_path,0644);
 
+		if ($this->is_valid_image($full_temp_file_path)) {
+			$this->type = "image";
+		}
+
+		if (!$this->ensure_directory_setup()) {
+			@unlink($full_temp_file_path);
+			return;
+		}
+
 		if ($this->overwrite_existing && file_exists($full_dest_file_path)) {
 			@unlink($full_dest_file_path);
 		}
@@ -323,21 +332,34 @@ class FileUpload {
 		Event::fire("process_uploaded_file", $full_temp_file_path, $this->upload_dir, $this->file_name);
 
 		Console::log("                        File successfully moved to temporary directory for post processing");
+
 		// Post processing
 		if ($this->type == "image") {
-			$this->image_post_process($full_temp_file_path,$full_dest_file_path);
+			Event::fire("process_uploaded_image", $this);
 		}
-		else {
+
+		if ($this->type == "image" && $this->_auto_process_images) {
+			$this->image_post_process($full_temp_file_path,$full_dest_file_path);
+		} else {
 			Console::log("                        No processing required. Moving file to destination directory...");
 			// Just move the file to destination folder
-			if (!rename($full_temp_file_path,$full_dest_file_path)) {
+			if (!@rename($full_temp_file_path,$full_dest_file_path)) {
 				$this->error(sprintf(__("Failed to move uploaded file (%s) to destination folder"),$this->file_name), 2);
 				return;
 			}
-			if (!chmod($full_dest_file_path,0644)) {
-				$this->error(sprintf(__("Failed to change permissions on uploaded file (%s)."),$full_dest_file_path), 2);
-				return;
-			}
+			@chmod($full_dest_file_path,0644);
+		}
+	}
+	/**
+	 * Set whether or not to auto-process images. This is a hook so others can kick in and override the default if needed
+	 *
+	 * @param string $bool 
+	 * @return void
+	 * @author Peter Epp
+	 */
+	public function set_auto_process_images($bool) {
+		if (is_bool($bool)) {
+			$this->_auto_process_images = $bool;
 		}
 	}
 	/**
@@ -371,21 +393,50 @@ class FileUpload {
 			}
 		}
 
-		// Auto-rotate the image based on the exif data, if present, and save the resulting image to the original file destination
-		$image->auto_rotate()->write($full_dest_original_path);
+		Console::log("Image dimensions before rotation: ".$image->current_width()."x".$image->current_height());
 
-		list($original_width, $original_height) = getimagesize($full_dest_original_path);
-		if ((IMG_WIDTH > 0 && $original_width > IMG_WIDTH) || (IMG_HEIGHT > 0 && $original_height > IMG_HEIGHT)) {
+		// Auto-rotate the image based on the exif data, if present
+		$image->auto_rotate();
+
+		Console::log("Image dimensions after rotation: ".$image->current_width()."x".$image->current_height());
+
+		// By default assume the original - if we're even going to keep it - is not modified
+		$original_modified = false;
+		if (defined('IMG_KEEP_ORIGINALS') && IMG_KEEP_ORIGINALS == 'Yes') {
+			if (defined('IMG_AUTO_ORIENT_ORIGINAL') && IMG_AUTO_ORIENT_ORIGINAL == 'Yes') {
+				// Set max jpeg quality in case the original is a jpeg to minimize lossiness in the original
+				$image->set_jpeg_quality(100);
+				$image->write($full_dest_original_path);
+				// Put quality back to defaults
+				$image->set_quality_defaults();
+				$original_modified = true;
+			} else {
+				@copy($full_temp_file_path, $full_dest_original_path);
+			}
+		}
+
+		if ((IMG_WIDTH > 0 && $image->current_width() > IMG_WIDTH) || (IMG_HEIGHT > 0 && $image->current_height() > IMG_HEIGHT)) {
 			// Shrink image to fit defined image size:
 			$image->resize(IMG_WIDTH,IMG_HEIGHT,Image::RESIZE_ONLY,$full_dest_file_path);
 		} else {
-			// Image does not need to be shrunk, so just copy the original to the standard destination and then delete the original:
-			@copy($full_dest_original_path, $full_dest_file_path);
-			@unlink($full_dest_original_path);
+			// File did not need to be resized, so instead we either copy or rename the original into the normal destination depending on whether or
+			// not the original was modified:
+			if ($original_modified) {
+				// If the original was modified (re-saved after attempted auto-rotation), then we don't really need to keep it. We'll just move it to
+				// the standard destination because that's as good as the original
+				@rename($full_dest_original_path, $full_dest_file_path);
+			} else {
+				// If, however, the original was left unmodified we want to leave it alone and we'll just write-out the image in memory to the
+				// normal destination path
+				$image->write($full_dest_file_path);
+			}
 		}
 
 		// Make thumbnail:
 		$image->resize(THUMB_WIDTH,THUMB_HEIGHT,Image::RESIZE_AND_CROP,$full_dest_thumb_path);
+
+		// Fire an event for anyone else who may want to kick in at this point to do additional operations on the image
+		Event::fire("image_upload_post_process", $this->upload_dir, $this->file_name, $image);
 
 		// Destroy the image to free memory:
 		$image->destroy();
@@ -394,10 +445,15 @@ class FileUpload {
 
 		@unlink($full_temp_file_path); // Delete the temporary image file.
 
-		chmod($full_dest_file_path,0644);
-		chmod($full_dest_thumb_path,0644);
+		@chmod($full_dest_file_path,0644);
+		@chmod($full_dest_thumb_path,0644);
+
+		Event::fire("image_file_uploaded", $full_dest_file_path);
+		Event::fire("image_file_uploaded", $full_dest_thumb_path);
+
 		if (file_exists($full_dest_original_path)) {
-			chmod($full_dest_original_path,0644);
+			@chmod($full_dest_original_path,0644);
+			Event::fire("image_file_uploaded", $full_dest_original_path);
 		}
 	}
 	/**

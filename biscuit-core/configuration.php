@@ -7,7 +7,7 @@ require_once(dirname(__FILE__)."/../config/system_globals.php");
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: configuration.php 13959 2011-08-08 16:25:15Z teknocat $
+ * @version 2.0 $Id: configuration.php 14400 2011-11-28 19:57:42Z teknocat $
  */
 class Configuration implements Singleton {
 	/**
@@ -109,21 +109,17 @@ class Configuration implements Singleton {
 			$config_basedir = SITE_ROOT."/config/";
 			$config_file = $config_basedir.$hostname."/config.php";
 			if (!file_exists($config_file)) {
-				$no_config = true;
-				// If no file is found matching the host name (without "www" prefix), try looking for a file for the parent hostname in case it's a sub-domain. This opens up support for multipile domains
-				if (count(explode('.',$hostname)) > 2) {
-					preg_match('/.+\.([^\.]+)\.([^\.]+)$/',$hostname,$matches);
-					$parent_hostname = $matches[1].'.'.$matches[2];
-					$config_file = $config_basedir.$parent_hostname."/config.php";
-					$no_config = !file_exists($config_file);
+				// If no file is found matching the exact host name (without "www" prefix), get the base domain and look for a host config file based on that:
+				$base_host_name = Crumbs::get_base_domain($hostname);
+				if (!empty($base_host_name)) {
+					$config_file = $config_basedir.$base_host_name."/config.php";
 				}
-				if ($no_config) {
-					// If no config file exists for the parent domain, see if a canonical domain name is defined and if there's a config file for it
+				if (!file_exists($config_file)) {
+					// If no config file exists for the base domain name, see if a canonical domain name is defined and if there's a config file for it
 					if (defined('CANONICAL_DOMAIN') and CANONICAL_DOMAIN != '') {
 						$config_file = $config_basedir.CANONICAL_DOMAIN."/config.php";
-						$no_config = !file_exists($config_file);
 					}
-					if ($no_config) {
+					if (!file_exists($config_file)) {
 						$config_file = false;
 					}
 				}

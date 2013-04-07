@@ -5,7 +5,7 @@
  * @package Core
  * @author Peter Epp
  */
-class Locale extends AbstractModel {
+class BiscuitLocale extends AbstractModel {
 	/**
 	 * Return the full ISO locale code by combining the 639 language code with the 3166 country code, ensuring correct case
 	 *
@@ -60,5 +60,14 @@ class Locale extends AbstractModel {
 	 */
 	public function is_active() {
 		return ($this->code() == I18n::instance()->locale());
+	}
+	/**
+	 * Return the actual table name as it's not the same as the class name
+	 *
+	 * @return string
+	 * @author Peter Epp
+	 **/
+	public static function db_tablename() {
+		return 'locales';
 	}
 }

@@ -1,0 +1,85 @@
+/* A stylesheet for rendering a very plain, clean page with white background with grey dialog-style content area in the middle */
+body#clean-page-dialog {
+	font-family: 'Lucida Grande', 'Lucida Sans Unicode', Arial, Helvetica, sans-serif;
+	background: #fff;
+	color: #000;
+	margin: 0;
+	padding: 50px 0;
+}
+body#clean-page-dialog #body-wrap {
+	width: 960px;
+	margin: 0 auto;
+	border: 1px solid #888;
+	background: #ccc url(/framework/themes/sea_biscuit/images/clean-dialog-bg.gif) center top repeat-x;
+	-moz-border-radius: 20px;
+	-webkit-border-radius: 20px;
+	border-radius: 20px;
+	padding: 15px 0;
+	-moz-box-shadow: 5px 5px 40px #666;
+	-webkit-box-shadow: 5px 5px 40px #666;
+	box-shadow: 5px 5px 40px #666;
+}
+body#clean-page-dialog #body-wrap #body-content {
+	padding: 0 30px 15px;
+}
+body#clean-page-dialog h1,
+body#clean-page-dialog h2,
+body#clean-page-dialog h3,
+body#clean-page-dialog h4,
+body#clean-page-dialog p {
+	font-family: 'Lucida Grande', 'Lucida Sans Unicode', Arial, Helvetica, sans-serif;
+	text-shadow: 1px 1px 0 #e0e0e0;
+}
+body#clean-page-dialog p {
+	font-size: 14px;
+}
+body#clean-page-dialog h2#main-heading {
+	padding: 0 30px 15px;
+	border-bottom: 2px groove #bbb;
+	text-shadow: 1px 1px 0 #e4e4e4;
+}
+body#clean-page-dialog #body-wrap.alert h2#main-heading {
+	color: #910000 !important;
+}
+body#clean-page-dialog #body-wrap .controls {
+	margin: 0;
+	border: none;
+	background: none;
+}
+body#clean-page-dialog #body-wrap .controls a {
+	float: right;
+}
+body#clean-page-dialog pre {
+	width: 870px;
+	overflow: auto;
+	margin: 15px 0;
+	background: #333;
+	color: #ddd;
+	padding: 10px 15px;
+	-moz-border-radius: 10px;
+	-webkit-border-radius: 10px;
+	border-radius: 10px;
+	-moz-box-shadow: inset 0 0 5px #ccc;
+	-webkit-box-shadow: inset 0 0 5px #ccc;
+	box-shadow: inset 0 0 5px #ccc;
+	font-size: 14px;
+}
+body#clean-page-dialog #body-wrap fieldset p,
+body#clean-page-dialog #body-wrap .ui-tabs p,
+body#clean-page-dialog #body-wrap .ui-tabs h1,
+body#clean-page-dialog #body-wrap .ui-tabs h2,
+body#clean-page-dialog #body-wrap .ui-tabs h3,
+body#clean-page-dialog #body-wrap .ui-tabs h4,
+body#clean-page-dialog #body-wrap div.error p,
+body#clean-page-dialog #body-wrap div.notice p,
+body#clean-page-dialog #body-wrap div.success p {
+	text-shadow: none;
+}
+body#clean-page-dialog #body-wrap div.error,
+body#clean-page-dialog #body-wrap div.notice,
+body#clean-page-dialog #body-wrap div.success {
+	-moz-border-radius: 10px;
+	-webkit-border-radius: 10px;
+	border-radius: 10px;
+	text-shadow: none !important;
+}

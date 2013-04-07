@@ -10,7 +10,7 @@ print Form::text($id,$name,$label,$default_value,$required,$is_valid,array('maxl
 	<?php
 	if (empty($instructions)) {
 	?>
-	<strong><?php echo __("Remember") ?>:</strong> <?php echo __("if you later move, rename or delete the file using the file manager you will need to update this banner ad accordingly.") ?><br><br><strong><?php echo __("Important") ?>:</strong> <?php echo __("Before uploading your file please ensure that it is pre-sized to the dimensions of the region selected above.") ?>
+	<strong><?php echo __("Remember") ?>:</strong> <?php echo __("if you later move, rename or delete the file using the file manager you will need to update this item accordingly.") ?><br><br><strong><?php echo __("Important") ?>:</strong> <?php echo __("Before uploading your file please ensure that it is pre-sized to the dimensions of the region selected above.") ?>
 	<?php
 	} else {
 		echo __($instructions);

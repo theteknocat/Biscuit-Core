@@ -6,7 +6,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: recursive.php 14304 2011-09-23 21:51:39Z teknocat $
+ * @version 2.0 $Id: recursive.php 14703 2012-08-22 20:05:41Z teknocat $
  */
 class Recursive {
 	private function __construct() {
@@ -187,12 +187,10 @@ class Recursive {
 	 * @author Peter Epp
 	 */
 	public static function rmdir($directory, $keep_original_folder=false) {
+		$directory = rtrim($directory, '/');
 		// List of directories that cannot be deleted:
-		$skip_list = array('',SITE_ROOT,FW_ROOT,SITE_ROOT."/css",FW_ROOT."/css",SITE_ROOT."/images",FW_ROOT."/images",SITE_ROOT."/plugins",FW_ROOT."/plugins",SITE_ROOT."/scripts",FW_ROOT."/scripts",SITE_ROOT."/templates",FW_ROOT."/templates",SITE_ROOT."/views",FW_ROOT."/views",FW_ROOT."/lib",FW_ROOT."/core.php",FW_ROOT."/index.php");
+		$skip_list = array('',SITE_ROOT,SITE_ROOT.'/config',SITE_ROOT."/extensions",SITE_ROOT.'/install',SITE_ROOT.'/libraries',SITE_ROOT.'/migrations',SITE_ROOT."/modules",SITE_ROOT."/themes",SITE_ROOT."/views",FW_ROOT,FW_ROOT.'/biscuit-core',FW_ROOT.'/config',FW_ROOT.'/extensions',FW_ROOT.'/images',FW_ROOT.'/install',FW_ROOT.'/js',FW_ROOT.'/libraries',FW_ROOT.'/migrations',FW_ROOT.'/modules',FW_ROOT.'/themes',FW_ROOT.'/views');
 		if (!in_array($directory,$skip_list)) {
-			if(substr($directory,-1) == '/') {
-				$directory = substr($directory,0,-1);
-			}
 			if(!file_exists($directory) || !is_dir($directory) || !is_readable($directory)) {
 				return false;
 			}

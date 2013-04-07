@@ -6,7 +6,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: session.php 14321 2011-09-30 17:37:07Z teknocat $
+ * @version 2.0 $Id: session.php 14579 2012-03-12 20:01:58Z teknocat $
  */
 class Session {
 	private function __construct() {
@@ -20,11 +20,9 @@ class Session {
 	 * @author Peter Epp
 	 */
 	public static function start($allow_db_sessions = true) {
+		self::init_storage($allow_db_sessions);
 		session_cache_limiter('none');	// Disables automatic sending of Cache-Control, Pragma and Expires headers
 		register_shutdown_function('session_write_close');
-		if ($allow_db_sessions) {
-			SessionStorage::init();
-		}
 		session_name(SESSION_NAME);
 		if ($sessid = Request::form('session_id')) {
 			self::set_id($sessid);
@@ -34,6 +32,20 @@ class Session {
 		if (DEBUG) {
 			$session_contents = Session::contents();
 			Console::log_var_dump("Session contents",$session_contents);
+		}
+	}
+	/**
+	 * Initialize session storage settings
+	 *
+	 * @param string $allow_db_sessions 
+	 * @return void
+	 * @author Peter Epp
+	 */
+	public static function init_storage($allow_db_sessions) {
+		if ($allow_db_sessions && defined("USE_DB_SESSIONS") && USE_DB_SESSIONS === true) {
+			SessionStoreDb::init();
+		} else {
+			SessionStoreFile::init();
 		}
 	}
 	/**

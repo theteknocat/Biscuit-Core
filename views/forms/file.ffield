@@ -4,7 +4,7 @@
 if (!empty($finfo)) {
 	?>
 	<label style="clear: both"><?php echo __("Current File") ?>:</label>
-	<span class="field-container">
+	<span class="field-container file-info">
 		<span style="display:block;float:left;margin-right: 10px">
 			<a href="<?php echo $finfo['download_url'] ;?>" id="attr_<?php echo $id ?>-linked-file" target="_blank"><?php echo $finfo['file_name']; ?></a> <span class="small">(<?php
 				echo $finfo['size'];

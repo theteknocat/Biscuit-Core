@@ -2,7 +2,7 @@
 /**
 * Simple example script using PHPMailer with exceptions enabled
 * @package phpmailer
-* @version $Id: testemail.php 13826 2011-07-27 18:51:13Z teknocat $
+* @version $Id: testemail.php 14196 2011-09-01 19:08:39Z teknocat $
 */
 
 require '../class.phpmailer.php';

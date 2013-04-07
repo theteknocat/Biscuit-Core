@@ -6,7 +6,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: db.php 13959 2011-08-08 16:25:15Z teknocat $
+ * @version 2.0 $Id: db.php 14723 2012-11-28 17:15:25Z teknocat $
  **/
 class DB {
 	/**
@@ -128,7 +128,7 @@ class DB {
 	 * @param string $query MySQL query
 	 **/
 	public static function query($query, $params = array()) {
-		self::log_query($query);
+		self::log_query($query, $params);
 		self::$_last_num_rows_returned = null;
 		$stmt = self::$_pdo->prepare($query);
 		$result = $stmt->execute((array)$params);
@@ -136,7 +136,7 @@ class DB {
 		if ($result === false) {
 			$error_info = $stmt->errorInfo();
 			if (!Session::get('installer_running')) {
-				trigger_error('Database Query ('.$query.') failed: '.$error_info[2], E_USER_ERROR);
+				trigger_error('Database Query ('.$query.') failed: '.$error_info[2].' (Params: '.print_r($params, true).')', E_USER_ERROR);
 			} else {
 				return 'MySQL Error: '.$error_info[2];
 			}
@@ -170,6 +170,9 @@ class DB {
 		$new_array = array();
 		if (!empty($array)) {
 			foreach ($array as $k => $v) {
+				if (is_array($v)) {
+					$v = serialize($v);
+				}
 				$db_key = $k;
 				if (substr($db_key,0,1) != ":") {
 					$db_key = ":".$db_key;
@@ -292,7 +295,7 @@ class DB {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	private static function log_query($query) {
+	private static function log_query($query, $params) {
 		$backtrace = debug_backtrace();
 		$db_method = AkInflector::humanize($backtrace[2]['function']);
 		$called_by = $backtrace[3]['class'].$backtrace[3]['type'].$backtrace[3]['function'];
@@ -301,9 +304,8 @@ class DB {
 		$query = preg_replace("/\t+/"," ",$query);	// Replace tabs with spaces
 		$query = preg_replace("/\s\s+/"," ",$query);	// Replace 2 or more spaces with 1 space
 		// Build the log message in CSV format:
-		$log_message = '"'.$db_method.'","'.$called_by.'","'.addslashes($query).'"';
+		$log_message = '"'.$db_method.'","'.$called_by.'","'.addslashes($query).'","'.print_r($params,true).'"';
 		// Store in the query log:
 		Console::log_query($log_message);
 	}
 }
-?>

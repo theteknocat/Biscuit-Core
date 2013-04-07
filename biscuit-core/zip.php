@@ -9,7 +9,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 1.0 $Id: zip.php 13959 2011-08-08 16:25:15Z teknocat $
+ * @version 1.0 $Id: zip.php 14770 2013-01-04 19:05:56Z teknocat $
  */
 class Zip {
 	/**
@@ -65,8 +65,6 @@ class Zip {
 	 * @author Peter Epp
 	 */
 	public function generate() {
-		ob_start();
-
 		// http://www.pkware.com/documents/casestudies/APPNOTE.TXT (v6.3.2)
 		$lfh_offset = 0;
 		$cds = '';
@@ -79,7 +77,7 @@ class Zip {
 			$f_crc32 = $this->fixbug45028(hexdec(hash_file('crc32b', $f, false)));
 
 			// Local file header
-			echo pack('VvvvVVVVvva' . $f_namelen,
+			$file_header = pack('VvvvVVVVvva' . $f_namelen,
 				0x04034b50,         // local file header signature (4 bytes)
 				0x0a,               // version needed to extract (2 bytes) => 1.0
 				0x0800,             // general purpose bit flag (2 bytes) => UTF-8
@@ -94,9 +92,17 @@ class Zip {
 				$filename           // file name (variable size)
 				// extra field (variable size) => n/a
 			);
+			
+			$result = file_put_contents($this->_output_file, $file_header, FILE_APPEND);
+			if (!$result) {
+				return false;
+			}
 
 			// File data
-			echo file_get_contents($f);
+			$result = file_put_contents($this->_output_file, file_get_contents($f), FILE_APPEND);
+			if (!$result) {
+				return false;
+			}
 
 			// Data descriptor (n/a)
 
@@ -132,7 +138,10 @@ class Zip {
 		// Archive extra data record (n/a)
 
 		// Central directory structure: Digital signature (n/a)
-		echo $cds; // send Central directory structure
+		$result = file_put_contents($this->_output_file, $cds, FILE_APPEND);
+		if (!$result) {
+			return false;
+		}
 
 		// Zip64 end of central directory record (n/a)
 		// Zip64 end of central directory locator (n/a)
@@ -140,7 +149,7 @@ class Zip {
 		// End of central directory record
 		$numfile = count($this->_files);
 		$cds_len = strlen($cds);
-		echo pack('VvvvvVVv',
+		$end_of_file_record = pack('VvvvvVVv',
 			0x06054b50,             // end of central dir signature (4 bytes)
 			0,                      // number of this disk (2 bytes)
 			0,                      // number of the disk with the start of
@@ -156,7 +165,7 @@ class Zip {
 			0                       // .ZIP file comment length (2 bytes)
 			// .ZIP file comment (variable size)
 		);
-		return file_put_contents($this->_output_file, ob_get_clean());
+		return file_put_contents($this->_output_file, $end_of_file_record, FILE_APPEND);
 	}
 	/**
 	 * Return the full path to the output file

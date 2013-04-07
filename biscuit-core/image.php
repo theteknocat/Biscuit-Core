@@ -21,7 +21,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 1.0 $Id: image.php 13959 2011-08-08 16:25:15Z teknocat $
+ * @version 1.0 $Id: image.php 14660 2012-06-02 20:47:35Z teknocat $
  */
 class Image {
 	/**
@@ -44,6 +44,18 @@ class Image {
 	 * Flip type both
 	 */
 	const FLIP_BOTH = 3;
+	/**
+	 * JPEG quality to use, 1 to 100
+	 *
+	 * @var int
+	 */
+	private $_jpeg_quality = 90;
+	/**
+	 * PNG compression level to use, 0 to 9
+	 *
+	 * @var int
+	 */
+	private $_png_compression = 9;
 	/**
 	 * Place to store the image resource
 	 *
@@ -104,14 +116,79 @@ class Image {
 				break;
 		}
 		if ($this->image_is_valid()) {
+			// Make sure alpha transparency always gets preserved. We need to do this here for cases where the image just gets written out to file without being modified in any way:
+			imagealphablending($this->_image, false);
+			imagesavealpha($this->_image, true);
+
 			$this->_source_path = $full_file_path;
 			$this->_src_width  = imagesx($this->_image);
 			$this->_src_height = imagesy($this->_image);
 			if ($this->_image_type == IMAGETYPE_JPEG) {
 				$this->_exif = exif_read_data($this->_source_path);
 			}
+			$this->set_quality_defaults();
 		} else {
 			$this->error(__("The image does not appear to be a valid JPEG, PNG or GIF. If you believe that is not the case, the file might be corrupted."));
+		}
+	}
+	/**
+	 * Return the width of the image currently in memory
+	 *
+	 * @return int
+	 * @author Peter Epp
+	 */
+	public function current_width() {
+		return $this->_src_width;
+	}
+	/**
+	 * Return the height of the image currently in memory
+	 *
+	 * @return int
+	 * @author Peter Epp
+	 */
+	public function current_height() {
+		return $this->_src_height;
+	}
+	/**
+	 * Set the jpeg compression to use, if it's a valid value
+	 *
+	 * @param string $jpeg_quality 
+	 * @return void
+	 * @author Peter Epp
+	 */
+	public function set_jpeg_quality($jpeg_quality) {
+		if ((int)$jpeg_quality >= 1 && (int)$jpeg_quality <= 100) {
+			$this->_jpeg_quality = $jpeg_quality;
+		}
+	}
+	/**
+	 * Set the PNG compression level to use, if it's a valid value
+	 *
+	 * @param string $png_compression 
+	 * @return void
+	 * @author Peter Epp
+	 */
+	public function set_png_compression($png_compression) {
+		if ((int)$png_compression >= 0 && (int)$png_compression <= 9) {
+			$this->_png_compression = $png_compression;
+		}
+	}
+	/**
+	 * Set JPEG quality and PNG compression level to defaults, using system config first if defined otherwise hard-coded default values
+	 *
+	 * @return void
+	 * @author Peter Epp
+	 */
+	public function set_quality_defaults() {
+		if (defined('IMG_JPEG_QUALITY') && IMG_JPEG_QUALITY >= 1 && IMG_JPEG_QUALITY <= 100) {
+			$this->_jpeg_quality = IMG_JPEG_QUALITY;
+		} else {
+			$this->_jpeg_quality = 90;
+		}
+		if (defined('IMG_PNG_COMPRESSION') && IMG_PNG_COMPRESSION >= 0 && IMG_PNG_COMPRESSION <= 9) {
+			$this->_png_compression = IMG_PNG_COMPRESSION;
+		} else {
+			$this->_png_compression = 9;
 		}
 	}
 	/**
@@ -218,13 +295,13 @@ class Image {
 		}
 		switch ($this->_image_type) {
 			case IMAGETYPE_JPEG:
-				imagejpeg($img_resource, $destination_path, 90);
+				imagejpeg($img_resource, $destination_path, $this->_jpeg_quality);
 				break;
 			case IMAGETYPE_GIF:
 				imagegif($img_resource, $destination_path);
 				break;
 			case IMAGETYPE_PNG:
-				imagepng($img_resource, $destination_path, 9);
+				imagepng($img_resource, $destination_path, $this->_png_compression);
 				break;
 		}
 	}
@@ -276,7 +353,7 @@ class Image {
 					break;
 
 				case 3: // 180 rotate left
-					return $this->rotate_image(180);
+					return $this->rotate_image(180,$destination_path);
 					break;
 
 				case 4: // vertical flip
@@ -454,6 +531,9 @@ class Image {
 
 		// Create a destination image resource in memory:
 		$dest = imagecreatetruecolor($new_width,$new_height);
+		imagecolortransparent($dest, imagecolorallocate($dest, 0, 0, 0));
+		imagealphablending($dest, false);
+		imagesavealpha($dest, true);
 
 		// Syntax for crop and scale source into destination:
 		// imagecopyresampled ( resource $dst_image , resource $src_image , int $dst_x , int $dst_y , int $src_x , int $src_y , int $dst_w , int $dst_h , int $src_w , int $src_h )
@@ -473,7 +553,7 @@ class Image {
 	 * @author Peter Epp
 	 */
 	public function destroy() {
-		if (!empty($this->_image)) {
+		if (is_resource($this->_image)) {
 			imagedestroy($this->_image);
 			$this->_image = null;
 		}

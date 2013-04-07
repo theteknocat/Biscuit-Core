@@ -6,7 +6,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.2 $Id: biscuit.php 14346 2011-10-11 15:18:08Z teknocat $
+ * @version 2.2 $Id: biscuit.php 14749 2012-12-01 21:06:11Z teknocat $
  **/
 // TODO Add a mechanism for handling certain file types, like images, in a special when an error 404 occurs.  For example send a "no_image.gif".
 class Biscuit extends ModuleCore implements Singleton {
@@ -21,7 +21,7 @@ class Biscuit extends ModuleCore implements Singleton {
 	 *
 	 * @author Peter Epp
 	 */
-	protected static $_version_minor = 9;
+	protected static $_version_minor = 10;
 	/**
 	 * An array of variables that will be made into local variables at render time, if any exist
 	 *
@@ -181,6 +181,8 @@ class Biscuit extends ModuleCore implements Singleton {
 		$this->init_page_modules();
 
 		$this->request_token_check();
+
+		$this->Theme->initialize();
 	}
 	/**
 	 * Run extension or module install or uninstall operation if requested
@@ -211,18 +213,19 @@ class Biscuit extends ModuleCore implements Singleton {
 		$page_found = true;
 		try {
 			if (Request::slug() == 'cron') {
+				$this->set_never_cache(); // Never cache cron requests
 				Console::log("Running cron jobs");
 				Cron::add_message($this,"Cron dispatching");
 				Event::fire('cron_run');
 				$complete_msg = "Cron run complete";
-				$message_count = Cron::message_count();
-				if ($message_count > 1) {
-					$complete_msg .= ", ".$message_count." task".(($message_count > 2) ? 's' : '')." were performed";
+				$message_count = Cron::message_count()-1;
+				if ($message_count > 0) {
+					$complete_msg .= ", ".$message_count." task".(($message_count != 1) ? 's were' : ' was')." performed";
 				} else {
 					$complete_msg .= ", no tasks were performed";
 				}
 				Cron::add_message($this,$complete_msg);
-				$output = Cron::messages();
+				$output = Cron::messages()."\n";
 				Response::content_type('text/plain; charset=utf8');
 				$this->render($output);
 				Bootstrap::end_program(true);
@@ -348,10 +351,6 @@ class Biscuit extends ModuleCore implements Singleton {
 		if (Response::http_status() != 200) {
 			$this->set_never_cache();
 		}
-		// Check for theme path existence:
-		if (!$this->Theme->full_theme_path()) {
-			throw new ThemeException("Theme not found: ".$this->Theme->theme_name());
-		}
 	}
 	/**
 	 * Check the page token and produce a bad request response if the check fails
@@ -436,11 +435,20 @@ class Biscuit extends ModuleCore implements Singleton {
 	 * @author Peter Epp
 	 */
 	public function render($content = "") {
-		if (!$this->page_rendered && Request::type() != 'server_action') {
+		if (!$this->page_rendered) {
+			if (Request::is_fire_and_forget()) {
+				// Output something to indicate request completion and cause headers to be sent
+				$content = 'Request completed';
+			}
 			Console::log("Rendering:");
 			if ($this->browser_cache_allowed()) {
 				$last_modified = gmdate(GMT_FORMAT, ((!empty($content)) ? time() : $this->latest_update_timestamp()));
 				if (empty($content) && !$this->modified_since_last_request() && Request::method() != 'HEAD') {
+					if (Request::type() == 'json') {
+						// Make sure we send the right response headers for JSON, when applicable
+						Response::content_type("application/json");
+						Response::add_header("X-JSON","true");
+					}
 					Response::http_status(304);
 				}
 			} else {
@@ -452,13 +460,15 @@ class Biscuit extends ModuleCore implements Singleton {
 			Response::add_header("Last-Modified",$last_modified);
 			if (!empty($content)) {
 				Console::log("    Content source: Static");
+				if ($this->page_cache_allowed() && Crumbs::ensure_directory(SITE_ROOT."/var/cache/pages")) {
+					$this->cache_write($content);
+					Event::fire('page_cached');
+				}
 			} else {
 				if (!$this->modified_since_last_request()) {
 					Console::log("    Page not modified since the last request. Skipping render.");
 				} else {
 					Console::log("    Content source: View file(s)");
-					// Store a reference to this (the web page object) in a nice variable for the view file:
-
 					$content = $this->compile_page();
 				}
 			}
@@ -479,6 +489,13 @@ class Biscuit extends ModuleCore implements Singleton {
 	protected function compile_page() {
 		if ($this->page_cache_is_valid()) {
 			Console::log("    Using cached page content");
+			// Send a header that indicates the page was loaded from cache. Handy for troubleshooting
+			Response::add_header('X-Biscuit-Cache', 'HIT');
+			if (Request::type() == 'json') {
+				// Make sure we send the right response headers for JSON, when applicable
+				Response::content_type("application/json");
+				Response::add_header("X-JSON","true");
+			}
 			return $this->cached_content();
 		} else {
 			Console::log("    Page cache invalid, compiling content");
@@ -670,8 +687,11 @@ HTML;
 	 * @author Lee O'Mara
 	 */
 	public function set_view_var($key,$value) {
-		$this->_view_vars[$key] = $value;
-		return $value;
+		if (!Request::is_json()) {
+			$this->_view_vars[$key] = $value;
+			return $value;
+		}
+		return null;
 	}
 	/**
 	 * Update an existing view var with an additional value, setting it if it doesn't exist. Takes into account different data types.
@@ -682,11 +702,15 @@ HTML;
 	 * @author Peter Epp
 	 */
 	public function append_view_var($key,$value) {
-		if (!isset($this->_view_vars[$key])) {
-			$this->_view_vars[$key] = $value;
-		} else {
-			$this->_view_vars[$key] .= $value;
+		if (!Request::is_json()) {
+			if (!isset($this->_view_vars[$key])) {
+				$this->_view_vars[$key] = $value;
+			} else {
+				$this->_view_vars[$key] .= $value;
+			}
+			return $this->_view_vars[$key];
 		}
+		return null;
 	}
 	/**
 	 * Set the body title

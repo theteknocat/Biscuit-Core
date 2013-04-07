@@ -7,7 +7,7 @@
  * @author Lee O'Mara
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 1.0 $Id: fragment_cache.php 13959 2011-08-08 16:25:15Z teknocat $
+ * @version 1.0 $Id: fragment_cache.php 14568 2012-03-08 20:29:32Z teknocat $
  */
 class FragmentCache {
 	/**
@@ -120,8 +120,10 @@ class FragmentCache {
 	 */
 	public function end($fragment_name){
 		$content = ob_get_flush();
-		Console::log("Fragment captured, storing and outputting...");
-		$this->store($fragment_name, $content);
+		if (!defined('NO_CACHE') || NO_CACHE == false) {
+			Console::log("Fragment captured, storing and outputting...");
+			$this->store($fragment_name, $content);
+		}
 	}
 	/**
 	 * Invalidate all fragments for the current fragment cache

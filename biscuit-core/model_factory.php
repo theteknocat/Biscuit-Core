@@ -21,7 +21,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: model_factory.php 14357 2011-10-28 22:23:04Z teknocat $
+ * @version 2.0 $Id: model_factory.php 14737 2012-11-30 22:56:56Z teknocat $
  */
 class ModelFactory {
 	/**
@@ -63,6 +63,9 @@ class ModelFactory {
 			$my_name = get_class($this);
 			if ($my_name != 'ModelFactory') {
 				$model_name = substr($my_name,0,-7);
+				if (preg_match('/^Custom/',$model_name)) {
+					$model_name = substr($model_name, 6);
+				}
 			} else {
 				trigger_error("Model Factory: Model name not provided!",E_USER_ERROR);
 			}
@@ -78,9 +81,12 @@ class ModelFactory {
 	 */
 	public static function instance($model_name, $override_existing = false) {
 		if (empty(self::$_instances[$model_name]) || $override_existing) {
-			$custom_factory = $model_name.'Factory';
-			if (class_exists($custom_factory)) {
-				self::$_instances[$model_name] = new $custom_factory();
+			$model_specific_factory_customized = 'Custom'.$model_name.'Factory';
+			$model_specific_factory = $model_name.'Factory';
+			if (class_exists($model_specific_factory_customized)) {
+				self::$_instances[$model_name] = new $model_specific_factory_customized();
+			} else if (class_exists($model_specific_factory)) {
+				self::$_instances[$model_name] = new $model_specific_factory();
 			} else {
 				self::$_instances[$model_name] = new self($model_name);
 			}

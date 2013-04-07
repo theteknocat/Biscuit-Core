@@ -9,7 +9,7 @@
 * @author Andy Prevost
 * @author Marcus Bointon
 * @copyright 2004 - 2009 Andy Prevost
-* @version $Id: phpmailerTest.php 13826 2011-07-27 18:51:13Z teknocat $
+* @version $Id: phpmailerTest.php 14196 2011-09-01 19:08:39Z teknocat $
 * @license http://www.gnu.org/copyleft/lesser.html GNU Lesser General Public License
 */
 

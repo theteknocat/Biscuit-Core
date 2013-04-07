@@ -6,7 +6,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: js_and_css_cache.php 14036 2011-08-11 22:08:50Z teknocat $
+ * @version 2.0 $Id: js_and_css_cache.php 14196 2011-09-01 19:08:39Z teknocat $
  */
 class JsAndCssCache extends EventObserver {
 	/**

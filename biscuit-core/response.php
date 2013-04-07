@@ -6,7 +6,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: response.php 14321 2011-09-30 17:37:07Z teknocat $
+ * @version 2.0 $Id: response.php 14559 2012-03-06 19:15:40Z teknocat $
  */
 class Response {
 	/**
@@ -15,18 +15,45 @@ class Response {
 	 * @author Peter Epp
 	 */
 	private static $_http_codes = array(
+		100 => 'Continue',
+		101 => 'Switching Protocols',
 		200 => 'OK',
+		201 => 'Created',
+		202 => 'Accepted',
+		203 => 'Non-Authoritative Information',
+		204 => 'No Content',
+		205 => 'Reset Content',
+		206 => 'Partial Content',
+		300 => 'Multiple Choices',
 		301 => 'Moved Permanently',
 		302 => 'Found',
 		303 => 'See Other',
 		304 => 'Not Modified',
+		305 => 'Use Proxy',
+		307 => 'Temporary Redirect',
 		400 => 'Bad Request',
 		401 => 'Unauthorized',
 		402 => 'Payment Required',
 		403 => 'Forbidden',
 		404 => 'Not Found',
 		406 => 'Not Acceptable',
-		500 => 'Internal Server Error'
+		407 => 'Proxy Authentication Required',
+		408 => 'Request Timeout',
+		409 => 'Conflict',
+		410 => 'Gone',
+		411 => 'Length Required',
+		412 => 'Precondition Failed',
+		413 => 'Request Entity Too Large',
+		414 => 'Request-URI Too Long',
+		415 => 'Unsupported Media Type',
+		416 => 'Request Range Not Satisfiable',
+		417 => 'Expectation Failed',
+		500 => 'Internal Server Error',
+		501 => 'Not Implemented',
+		502 => 'Bad Gateway',
+		503 => 'Service Unavailable',
+		504 => 'Gateway Timeout',
+		505 => 'HTTP Version Not Supported'
 	);
 	/**
 	 * Associative array of headers to send at render time
@@ -176,7 +203,7 @@ class Response {
 				self::header("Cache-Control: public, must-revalidate, proxy-revalidate, max-age=0");
 			}
 		}
-		self::header("X-Powered-By: Biscuit MVC Framework v".Biscuit::version());
+		self::header("X-Generator: Biscuit Framework v".Biscuit::version());
 		self::header("HTTP/1.1 ".self::$_http_status." ".self::$_http_codes[self::$_http_status]);
 		self::send_cookies();
 		self::$_headers_sent = true;

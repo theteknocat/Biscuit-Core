@@ -7,7 +7,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: library_loader.php 14208 2011-09-06 16:18:09Z teknocat $
+ * @version 2.0 $Id: library_loader.php 14204 2011-09-02 18:36:34Z teknocat $
  */
 class LibraryLoader {
 	/**

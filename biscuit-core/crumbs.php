@@ -10,7 +10,7 @@ define("SITE_ROOT_RELATIVE",true);
  * @package Core
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: crumbs.php 14327 2011-10-03 16:46:19Z teknocat $
+ * @version 2.0 $Id: crumbs.php 14586 2012-03-15 18:27:52Z teknocat $
  **/
 class Crumbs {
 	private function __construct() {
@@ -320,32 +320,16 @@ class Crumbs {
 	 * @return bool Whether or not the address is valid
 	 * @author Peter Epp
 	 */
-	public static function valid_email($email) {
-		// First, we check that there's one @ symbol, and that the lengths are right
-		if (!preg_match("/^[^@]{1,64}@[^@]{1,255}$/", $email)) {
-			// Email invalid because wrong number of characters in one section, or wrong number of @ symbols.
-			return false;
-		}
-		// Split it into sections to make life easier
-		$email_array = explode("@", $email);
-		$local_array = explode(".", $email_array[0]);
-		for ($i = 0; $i < count($local_array); $i++) {
-			if (!preg_match("/^(([A-Za-z0-9!#$%&'*+\/=?^_`{|}~-][A-Za-z0-9!#$%&'*+\/=?^_`{|}~\.-]{0,63})|(\"[^(\\|\")]{0,62}\"))$/", $local_array[$i])) {
+	public static function valid_email($address) {
+		if (function_exists('filter_var')) { //Introduced in PHP 5.2
+			if(filter_var($address, FILTER_VALIDATE_EMAIL) === FALSE) {
 				return false;
+			} else {
+				return true;
 			}
+		} else {
+			return preg_match('/^(?:[\w\!\#\$\%\&\'\*\+\-\/\=\?\^\`\{\|\}\~]+\.)*[\w\!\#\$\%\&\'\*\+\-\/\=\?\^\`\{\|\}\~]+@(?:(?:(?:[a-zA-Z0-9_](?:[a-zA-Z0-9_\-](?!\.)){0,61}[a-zA-Z0-9_-]?\.)+[a-zA-Z0-9_](?:[a-zA-Z0-9_\-](?!$)){0,61}[a-zA-Z0-9_]?)|(?:\[(?:(?:[01]?\d{1,2}|2[0-4]\d|25[0-5])\.){3}(?:[01]?\d{1,2}|2[0-4]\d|25[0-5])\]))$/', $address);
 		}
-		if (!preg_match("/^\[?[0-9\.]+\]?$/", $email_array[1])) { // Check if domain is IP. If not, it should be valid domain name
-			$domain_array = explode(".", $email_array[1]);
-			if (count($domain_array) < 2) {
-				return false; // Not enough parts to domain
-			}
-			for ($i = 0; $i < count($domain_array); $i++) {
-				if (!preg_match("/^(([A-Za-z0-9][A-Za-z0-9-]{0,61}[A-Za-z0-9])|([A-Za-z0-9]+))$/", $domain_array[$i])) {
-					return false;
-				}
-			}
-		}
-		return true;
 	}
 	/**
 	 * Validate 7 or 10 digit north american phone number, allowing spaces, dashes or periods as delimiters. Optionally allows extension
@@ -710,11 +694,11 @@ class Crumbs {
 		} else {
 			$module_name = $module;
 		}
-		if (substr($module_name,-7) == 'Manager' && !Crumbs::file_exists_in_load_path('modules/'.AkInflector::underscore($module_name))) {
-			$module_name = substr($module_name,0,-7);
-		}
 		if (substr($module_name,0,6) == 'Custom') {
 			$module_name = substr($module_name,6);
+		}
+		if (substr($module_name,-7) == 'Manager' && !Crumbs::file_exists_in_load_path('modules/'.AkInflector::underscore($module_name))) {
+			$module_name = substr($module_name,0,-7);
 		}
 		return $module_name;
 	}
@@ -982,32 +966,65 @@ HTML;
 		return rawurlencode(utf8_encode(strtolower($string_to_clean)));
 	}
 	/**
+	 * Return the base domain name (ie. without subdomain) for any given URL
+	 *
+	 * @param string $url 
+	 * @return void
+	 * @author Peter Epp
+	 */
+	public static function get_base_domain($url) {
+		if (!preg_match('/^http:\/\//', $url)) {
+			$url = 'http://'.$url;
+		}
+		$pieces = parse_url($url);
+		$domain = isset($pieces['host']) ? $pieces['host'] : '';
+		if (preg_match('/(?P<domain>[a-z0-9][a-z0-9\-]{1,63}\.[a-z\.]{2,6})$/i', $domain, $regs)) {
+			return $regs['domain'];
+		}
+		return false;
+	}
+	/**
 	 * Delete a file or folder. Folder deletion is recursive. File deletion ensures all known variations are also deleted (thumbnail, original etc)
 	 *
 	 * @param string $full_file_path 
 	 * @return void
 	 * @author Peter Epp
 	 */
-	public static function delete_file_or_folder($full_file_path) {
+	public static function delete_file_or_folder($full_file_path, $other_variation_sub_folders = array()) {
 		if (file_exists($full_file_path)) {
 			if (is_dir($full_file_path)) {
-				return Recursive::rmdir($full_file_path);
+				$success = Recursive::rmdir($full_file_path);
+				if ($success) {
+					Event::fire('directory_deleted', $full_file_path);
+				}
+				return $success;
 			} else {
 				if (@unlink($full_file_path)) {
-					$file_bits = explode('/',trim($full_file_path, '/'));
-					$filename = array_pop($file_bits);
-					$base_path = '/'.implode('/',$file_bits);
+					Event::fire('file_deleted', $full_file_path);
+					$file_info = new SplFileInfo($full_file_path);
+					$filename = $file_info->getBasename();;
+					$base_path = $file_info->getPath();
 					$thumb_path = $base_path.'/_thumbs/_'.$filename;
-					$bfm_thumb_path = $base_path.'/_thumbs/bfm/'.$filename;
 					$original_path = $base_path.'/_originals/'.$filename;
 					if (file_exists($thumb_path)) {
-						@unlink($thumb_path);
-					}
-					if (file_exists($bfm_thumb_path)) {
-						@unlink($bfm_thumb_path);
+						if (@unlink($thumb_path)) {
+							Event::fire('file_deleted', $thumb_path);
+						}
 					}
 					if (file_exists($original_path)) {
-						@unlink($original_path);
+						if (@unlink($original_path)) {
+							Event::fire('file_deleted', $original_path);
+						}
+					}
+					if (!empty($other_variation_sub_folders)) {
+						foreach ($other_variation_sub_folders as $folder_name) {
+							$other_variation_path = $base_path.'/'.$folder_name.'/'.$filename;
+							if (file_exists($other_variation_path)) {
+								if (@unlink($other_variation_path)) {
+									Event::fire('file_deleted', $other_variation_path);
+								}
+							}
+						}
 					}
 					return true;
 				}
@@ -1023,36 +1040,49 @@ HTML;
 	 * @return void
 	 * @author Peter Epp
 	 */
-	public static function rename_file_or_folder($old_file_path, $new_file_path) {
+	public static function rename_file_or_folder($old_file_path, $new_file_path, $other_variation_sub_folders = array()) {
 		if (file_exists($old_file_path)) {
 			if (@rename($old_file_path, $new_file_path)) {
 				if (is_file($new_file_path)) {
-					$old_file_bits = explode('/',trim($old_file_path, '/'));
-					$old_filename = array_pop($old_file_bits);
-					$old_base_path = '/'.implode('/',$old_file_bits);
+					Event::fire('file_renamed', $old_file_path, $new_file_path);
+					$file_info = new SplFileInfo($old_file_path);
+					$old_filename = $file_info->getBasename();
+					$old_base_path = $file_info->getPath();
 					$old_thumb_path = $old_base_path.'/_thumbs/_'.$old_filename;
-					$old_bfm_thumb_path = $old_base_path.'/_thumbs/bfm/'.$old_filename;
 					$old_original_path = $old_base_path.'/_originals/'.$old_filename;
-					if (file_exists($old_thumb_path) || file_exists($old_bfm_thumb_path) || file_exists($old_original_path)) {
-						$new_file_bits = explode('/', trim($new_file_path, '/'));
-						$new_filename = array_pop($new_file_bits);
-						$new_base_path = '/'.implode('/',$new_file_bits);
+					if (file_exists($old_thumb_path) || file_exists($old_original_path) || !empty($other_variation_sub_folders)) {
+						$new_file_info = new SplFileInfo($new_file_path);
+						$new_filename = $new_file_info->getBasename();
+						$new_base_path = $new_file_info->getPath();
 						if (file_exists($old_thumb_path)) {
 							Crumbs::ensure_directory($new_base_path.'/_thumbs');
 							$new_thumb_path = $new_base_path.'/_thumbs/_'.$new_filename;
-							@rename($old_thumb_path, $new_thumb_path);
-						}
-						if (file_exists($old_bfm_thumb_path)) {
-							Crumbs::ensure_directory($new_base_path.'/_thumbs/bfm');
-							$new_bfm_thumb_path = $new_base_path.'/_thumbs/bfm/'.$new_filename;
-							@rename($old_bfm_thumb_path, $new_bfm_thumb_path);
+							if (@rename($old_thumb_path, $new_thumb_path)) {
+								Event::fire('file_renamed', $old_thumb_path, $new_thumb_path);
+							}
 						}
 						if (file_exists($old_original_path)) {
 							Crumbs::ensure_directory($new_base_path.'/_originals');
 							$new_original_path = $new_base_path.'/_originals/'.$new_filename;
-							@rename($old_original_path, $new_original_path);
+							if (@rename($old_original_path, $new_original_path)) {
+								Event::fire('file_renamed', $old_original_path, $new_original_path);
+							}
+						}
+						if (!empty($other_variation_sub_folders)) {
+							foreach ($other_variation_sub_folders as $folder_name) {
+								$old_variation_path = $old_base_path.'/'.$folder_name.'/'.$old_filename;
+								if (file_exists($old_variation_path)) {
+									$new_variation_path = $new_base_path.'/'.$folder_name.'/'.$new_filename;
+									Crumbs::ensure_directory($new_base_path.'/'.$folder_name);
+									if (@rename($old_variation_path, $new_variation_path)) {
+										Event::fire('file_renamed', $old_variation_path, $new_variation_path);
+									}
+								}
+							}
 						}
 					}
+				} else {
+					Event::fire('directory_renamed', $old_file_path, $new_file_path);
 				}
 				return true;
 			}
@@ -1067,36 +1097,52 @@ HTML;
 	 * @return void
 	 * @author Peter Epp
 	 */
-	public static function copy_file_or_folder($old_file_path, $new_file_path) {
+	public static function copy_file_or_folder($old_file_path, $new_file_path, $other_variation_sub_folders = array()) {
 		if (file_exists($old_file_path)) {
 			if (is_dir($old_file_path)) {
-				return Recursive::copy($old_file_path, $new_file_path);
+				$success = Recursive::copy($old_file_path, $new_file_path);
+				if ($success) {
+					Event::fire('folder_copied', $old_file_path, $new_file_path);
+				}
+				return $success;
 			} else {
 				if (@copy($old_file_path, $new_file_path)) {
-					$old_file_bits = explode('/',trim($old_file_path, '/'));
-					$old_filename = array_pop($old_file_bits);
-					$old_base_path = '/'.implode('/',$old_file_bits);
+					Event::fire('file_copied', $old_file_path, $new_file_path);
+					$file_info = new SplFileInfo($old_file_path);
+					$old_filename = $file_info->getBasename();
+					$old_base_path = $file_info->getPath();
 					$old_thumb_path = $old_base_path.'/_thumbs/_'.$old_filename;
-					$old_bfm_thumb_path = $old_base_path.'/_thumbs/bfm/'.$old_filename;
 					$old_original_path = $old_base_path.'/_originals/'.$old_filename;
-					if (file_exists($old_thumb_path) || file_exists($old_bfm_thumb_path) || file_exists($old_original_path)) {
-						$new_file_bits = explode('/', trim($new_file_path, '/'));
-						$new_filename = array_pop($new_file_bits);
-						$new_base_path = '/'.implode('/',$new_file_bits);
+					if (file_exists($old_thumb_path) || file_exists($old_original_path) || !empty($other_variation_sub_folders)) {
+						$new_file_info = new SplFileInfo($new_file_path);
+						$new_filename = $new_file_info->getBasename();
+						$new_base_path = $new_file_info->getPath();
 						if (file_exists($old_thumb_path)) {
 							Crumbs::ensure_directory($new_base_path.'/_thumbs');
 							$new_thumb_path = $new_base_path.'/_thumbs/_'.$new_filename;
-							@copy($old_thumb_path, $new_thumb_path);
-						}
-						if (file_exists($old_bfm_thumb_path)) {
-							Crumbs::ensure_directory($new_base_path.'/_thumbs/bfm');
-							$new_bfm_thumb_path = $new_base_path.'/_thumbs/bfm/'.$new_filename;
-							@copy($old_bfm_thumb_path, $new_bfm_thumb_path);
+							if (@copy($old_thumb_path, $new_thumb_path)) {
+								Event::fire('file_copied', $old_thumb_path, $new_thumb_path);
+							}
 						}
 						if (file_exists($old_original_path)) {
 							Crumbs::ensure_directory($new_base_path.'/_originals');
 							$new_original_path = $new_base_path.'/_originals/'.$new_filename;
-							@copy($old_original_path, $new_original_path);
+							if (@copy($old_original_path, $new_original_path)) {
+								Event::fire('file_copied', $old_original_path, $new_original_path);
+							}
+						}
+						if (!empty($other_variation_sub_folders)) {
+							foreach ($other_variation_sub_folders as $folder_name) {
+								Crumbs::ensure_directory($new_base_path.'/'.$folder_name);
+								$old_variation_path = $old_base_path.'/'.$folder_name.'/'.$old_filename;
+								if (file_exists($old_variation_path)) {
+									$new_variation_path = $new_base_path.'/'.$folder_name.'/'.$new_filename;
+									Crumbs::ensure_directory($new_base_path.'/'.$folder_name);
+									if (@copy($old_variation_path, $new_variation_path)) {
+										Event::fire('file_copied', $old_variation_path, $new_variation_path);
+									}
+								}
+							}
 						}
 					}
 					return true;

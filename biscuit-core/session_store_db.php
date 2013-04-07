@@ -7,9 +7,9 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: session_storage.php 14357 2011-10-28 22:23:04Z teknocat $
+ * @version 2.0 $Id: session_store_db.php 14737 2012-11-30 22:56:56Z teknocat $
  */
-class SessionStorage {
+class SessionStoreDb {
 	/**
 	 * Database link identifier
 	 *
@@ -156,15 +156,13 @@ class SessionStorage {
 	 * @static
 	 */
 	public static function init() {
-		if (defined("USE_DB_SESSIONS") && USE_DB_SESSIONS === true) {
-			self::install();
-			$save_handler = ini_get("session.save_handler");
-			if ($save_handler != "user") {
-				ini_set("session.save_handler", "user");
-			}
-			$SessionStorage = new SessionStorage();
-			session_set_save_handler(array(&$SessionStorage,"open"),array(&$SessionStorage,"close"),array(&$SessionStorage,"read"),array(&$SessionStorage,"write"),array(&$SessionStorage,"destroy"),array(&$SessionStorage,"clean"));
+		self::install();
+		$save_handler = ini_get("session.save_handler");
+		if ($save_handler != "user") {
+			ini_set("session.save_handler", "user");
 		}
+		$me = new self();
+		session_set_save_handler(array($me,"open"),array($me,"close"),array($me,"read"),array($me,"write"),array($me,"destroy"),array($me,"clean"));
 	}
 	/**
 	 * Create the session storage DB table

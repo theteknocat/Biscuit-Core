@@ -6,7 +6,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: request.php 13959 2011-08-08 16:25:15Z teknocat $
+ * @version 2.0 $Id: request.php 14614 2012-03-29 15:19:41Z teknocat $
  */
 class Request implements Singleton {
 	/**
@@ -145,7 +145,7 @@ class Request implements Singleton {
 	 * @author Peter Epp
 	 */
 	public static function is_ping_keepalive() {
-		return (Request::is_ajax() && Request::type() == 'ping');
+		return (self::is_ajax() && self::type() == 'ping');
 	}
 	/**
 	 * Whether or not the request is an Ajaxy session refresh
@@ -154,7 +154,7 @@ class Request implements Singleton {
 	 * @author Peter Epp
 	 */
 	public static function is_session_refresh() {
-		return (Request::is_ajax() && Request::type() == 'session_refresh');
+		return (self::is_ajax() && self::type() == 'session_refresh');
 	}
 	/**
 	 * Return the value of query string ($_GET) variable
@@ -326,7 +326,7 @@ class Request implements Singleton {
 	 * @author Peter Epp
 	 */
 	public static function type() {
-		return (Request::header('X-Biscuit-Request-Type') != null ? Request::header('X-Biscuit-Request-Type') : 'standard');
+		return (self::header('X-Biscuit-Request-Type') != null ? self::header('X-Biscuit-Request-Type') : 'standard');
 	}
 	/**
 	 * Return the request method (ie. "get" or "post")
@@ -344,7 +344,7 @@ class Request implements Singleton {
 	 * @return bool
 	 **/
 	public static function is_post() {
-		return strtolower(Request::method()) == 'post';
+		return strtolower(self::method()) == 'post';
 	}
 	/**
 	 * Is the current request over ajax?
@@ -353,7 +353,25 @@ class Request implements Singleton {
 	 * @author Peter Epp
 	 */
 	public static function is_ajax() {
-		return (Request::header('X-Biscuit-Ajax-Request') === 'true');
+		return (self::header('X-Biscuit-Ajax-Request') === 'true');
+	}
+	/**
+	 * Whether or not the current request is for JSON data
+	 *
+	 * @return void
+	 * @author Peter Epp
+	 */
+	public static function is_json() {
+		return (self::type() == 'json');
+	}
+	/**
+	 * Whether or not the current request is a fire and forget ("server_action")
+	 *
+	 * @return void
+	 * @author Peter Epp
+	 */
+	public static function is_fire_and_forget() {
+		return (self::type() == 'server_action');
 	}
 	/**
 	 * Return the requested URL relative to the domain
@@ -396,7 +414,7 @@ class Request implements Singleton {
 	 * @author Peter Epp
 	 */
 	public static function host() {
-		return Request::header('Host');
+		return self::header('Host');
 	}
 	/**
 	 * Return the value of the "If-Modified-Since" request header, or null if not present
@@ -405,7 +423,7 @@ class Request implements Singleton {
 	 * @author Peter Epp
 	 */
 	public static function if_modified_since() {
-		return Request::header("If-Modified-Since");
+		return self::header("If-Modified-Since");
 	}
 	/**
 	 * Return the value of the "If-None-Match" request header, or null if not present
@@ -414,7 +432,7 @@ class Request implements Singleton {
 	 * @author Peter Epp
 	 */
 	public static function if_none_match() {
-		return Request::header('If-None-Match');
+		return self::header('If-None-Match');
 	}
 	/**
 	 * Whether or not the request is a post from a form to an iframe for an ajax-like result
@@ -423,7 +441,7 @@ class Request implements Singleton {
 	 * @author Peter Epp
 	 */
 	public static function is_ajaxy_iframe_post() {
-		return (Request::is_post() && Request::form('success_callback') !== null);
+		return (self::is_post() && self::form('success_callback') !== null);
 	}
 	/**
 	 * Return the value of any given $_SERVER variable

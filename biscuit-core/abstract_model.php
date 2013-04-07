@@ -6,7 +6,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: abstract_model.php 14480 2012-01-17 04:00:50Z teknocat $
+ * @version 2.0 $Id: abstract_model.php 14737 2012-11-30 22:56:56Z teknocat $
  */
 class AbstractModel extends EventObserver {
 	/**
@@ -155,6 +155,12 @@ class AbstractModel extends EventObserver {
 	 */
 	protected $_ignore_captcha = false;
 	/**
+	 * Whether or not the model uses a custom ID
+	 *
+	 * @var bool
+	 */
+	protected $_uses_custom_id = false;
+	/**
 	* Constructor for the AbstractModel class
 	*
 	* @param $attributes (array)  an associative array of attributes
@@ -206,15 +212,15 @@ class AbstractModel extends EventObserver {
 			} else {
 				$teaser_length = 400;
 			}
-			$text = H::purify_text($this->_get_attribute($this->teaser_attribute()));
+			$text = trim(H::purify_text($this->_get_attribute($this->teaser_attribute())));
 			if (strlen($text) <= $teaser_length) {
 				return $text;
 			}
-			$teaser = substr($text,0,strpos($text," ",$teaser_length));
-			if (substr($teaser,-1) == '.') {
-				// Remove period from end, if present.
-				$teaser = substr($teaser,0,-1);
+			while (empty($teaser)) {
+				$teaser = substr($text,0,strpos($text," ",$teaser_length));
+				$teaser_length -= 5;
 			}
+			$teaser = rtrim($teaser, '.,:;\'"');
 			$teaser .= '...';
 			return $teaser;
 		}
@@ -283,7 +289,7 @@ class AbstractModel extends EventObserver {
 			}
 			array_unshift($args, $method_name);
 			$related_models = call_user_func_array(array($this,'_get_related'),$args);
-			if ($related_models !== null) {
+			if ($related_models !== 'invalid') {
 				return $related_models;
 			}
 		}
@@ -344,10 +350,13 @@ class AbstractModel extends EventObserver {
 				$related_id_attribute = $attr_name.'_id';
 			}
 			if ($this->_has_attribute($related_id_attribute)) {
-				if (empty($this->_the_single_models_i_belong_to[$related_model_name])) {
-					$this->_the_single_models_i_belong_to[$related_model_name] = ModelFactory::instance($related_model_name)->find($this->$related_id_attribute());
+				if ($this->$related_id_attribute()) {
+					if (empty($this->_the_single_models_i_belong_to[$related_model_name])) {
+						$this->_the_single_models_i_belong_to[$related_model_name] = ModelFactory::instance($related_model_name)->find($this->$related_id_attribute());
+					}
+					return $this->_the_single_models_i_belong_to[$related_model_name];
 				}
-				return $this->_the_single_models_i_belong_to[$related_model_name];
+				return null;
 			}
 		}
 		if (array_key_exists($related_model_name, $this->_has_and_belongs_to_many)) {
@@ -369,7 +378,7 @@ class AbstractModel extends EventObserver {
 			}
 			return $this->_the_models_i_have_and_belong_to[$related_model_name];
 		}
-		return null;
+		return 'invalid';
 	}
 	/**
 	 * Whether or not an attribute is required. First checks against the database descriptor, then against _required_attributes array to allow overriding the database.
@@ -398,7 +407,8 @@ class AbstractModel extends EventObserver {
 	 * @author Peter Epp
 	 */
 	protected function _attr_is_valid($attr_name) {
-		if ($this->_attr_is_required($attr_name)) {
+		$required_method = $attr_name.'_is_required';
+		if ($this->$required_method($attr_name)) {
 			if ($attr_name == 'id' && $this->is_new()) {
 				return true;
 			} else {
@@ -692,9 +702,9 @@ class AbstractModel extends EventObserver {
 	 * @author Peter Epp
 	 */
 	protected function _get_attribute($key) {
-		if (array_key_exists($key,$this->_attributes) && (!empty($this->_attributes[$key]['value']) || $this->_attributes[$key]['value'] === 0 || $this->_attributes[$key]['value'] === '0')) {
+		if (array_key_exists($key,$this->_attributes) && (!empty($this->_attributes[$key]['value']) || $this->_attributes[$key]['value'] === 0 || $this->_attributes[$key]['value'] === '0') && $this->_attributes[$key]['value'] !== '0000-00-00' && $this->_attributes[$key]['value'] !== '0000-00-00 00:00:00') {
 			return $this->_attributes[$key]['value'];
-		} else if (array_key_exists($key,$this->_other_attributes) && (!empty($this->_other_attributes[$key]['value']) || $this->_other_attributes[$key]['value'] === 0 || $this->_other_attributes[$key]['value'] === '0')) {
+		} else if (array_key_exists($key,$this->_other_attributes) && (!empty($this->_other_attributes[$key]['value']) || $this->_other_attributes[$key]['value'] === 0 || $this->_other_attributes[$key]['value'] === '0') && $this->_other_attributes[$key]['value'] !== '0000-00-00' && $this->_other_attributes[$key]['value'] !== '0000-00-00 00:00:00') {
 			return $this->_other_attributes[$key]['value'];
 		}
 		return null;
@@ -780,9 +790,11 @@ class AbstractModel extends EventObserver {
 		if (!$bypass_validation && !$this->_has_been_validated() && !$this->validate()) {
 			return false;
 		}
+		if ($bypass_validation && method_exists($this,"_set_attribute_defaults")) {
+			$this->_set_attribute_defaults();
+		}
 		Console::log("                        Saving ".get_class($this));
 		if ($this->_handle_file_upload_or_removal()) {
-			$using_custom_id = false;
 			// Filter attributes for saving to only those that are not empty and belong in the database
 			$attributes = $this->get_attributes();
 			$db_table = $this->_db_table();
@@ -796,17 +808,18 @@ class AbstractModel extends EventObserver {
 				$query = "INSERT INTO `".$db_table."` SET ";
 				if (method_exists($this, 'set_custom_id')) {
 					$attributes['id'] = $this->set_custom_id();
-					$using_custom_id = true;
+					$this->_uses_custom_id = true;
 				}
 			}
 			//  Add the data to the query string:
 			$query .= DB::query_from_data($attributes);
 			$pdo_data = DB::pdo_assoc_array($attributes);
 			if (!$this->is_new()) {
-				$query .= " WHERE `id` = ".$this->id();
+				$pdo_data[':id'] = $this->id();
+				$query .= " WHERE `id` = :id";
 				$result = DB::query($query, $pdo_data);
 			} else {
-				if ($using_custom_id) {
+				if ($this->_uses_custom_id) {
 					$result = DB::query($query, $pdo_data);
 					if ($result) {
 						$this->set_id($attributes['id']);
@@ -870,7 +883,7 @@ class AbstractModel extends EventObserver {
 	protected function _handle_file_upload_or_removal() {
 		if (!empty($this->_attributes_with_uploads)) {
 			foreach ($this->_attributes_with_uploads as $attribute_name) {
-				if (Request::form('remove_'.$attribute_name) === 1) {
+				if ($this->user_input('remove_'.$attribute_name)) {
 					$this->_remove_file($attribute_name);
 				}
 				$this->_process_upload($attribute_name);

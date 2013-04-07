@@ -6,7 +6,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: page.php 13959 2011-08-08 16:25:15Z teknocat $
+ * @version 2.0 $Id: page.php 14602 2012-03-21 21:52:53Z teknocat $
  **/
 class Page extends AbstractModel {
 	/**
@@ -203,10 +203,19 @@ class Page extends AbstractModel {
 	 * @author Peter Epp
 	 */
 	public function full_title($separator = null) {
-		if ($this->slug() == "index") {
-			$title_string = __(HOME_TITLE);
+		if ($this->has_navigation_label() && $this->navigation_label()) {
+			$page_title = $this->navigation_label();
+		} else {
+			$page_title = $this->title();
 		}
-		else {
+		$action = $this->user_input('action');
+		if ($this->slug() == "index" && empty($action)) {
+			if (HOME_TITLE != '') {
+				$title_string = __(HOME_TITLE);
+			} else {
+				$title_string = __($page_title);
+			}
+		} else {
 			if ($separator !== null) {
 				// Take supplied argument if present
 				$separator = ' '.$separator.' ';
@@ -217,12 +226,7 @@ class Page extends AbstractModel {
 				// Otherwise default:
 				$separator = ' :: ';
 			}
-			if ($this->has_navigation_label() && $this->navigation_label()) {
-				$title = $this->navigation_label();
-			} else {
-				$title = $this->title();
-			}
-			$title_string = __($title).$separator.__(SITE_TITLE);
+			$title_string = __($page_title).$separator.__(SITE_TITLE);
 		}
 		return $title_string;
 	}

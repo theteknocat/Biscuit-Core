@@ -8,7 +8,7 @@ require_once("biscuit-core/vendor/phpmailer/class.phpmailer.php");
  * @author Lee O'Mara
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: mailer.php 14440 2011-12-08 17:14:08Z teknocat $
+ * @version 2.0 $Id: mailer.php 14744 2012-12-01 20:50:43Z teknocat $
  */
 class Mailer extends PHPMailer {
 	/**

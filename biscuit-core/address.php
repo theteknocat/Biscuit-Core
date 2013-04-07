@@ -6,7 +6,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: address.php 14431 2011-12-04 04:07:10Z teknocat $
+ * @version 2.0 $Id: address.php 14744 2012-12-01 20:50:43Z teknocat $
  */
 class Address {
 	private function __construct() {

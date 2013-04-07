@@ -21,7 +21,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 1.0 $Id: image.php 14660 2012-06-02 20:47:35Z teknocat $
+ * @version 1.0 $Id: image.php 14744 2012-12-01 20:50:43Z teknocat $
  */
 class Image {
 	/**

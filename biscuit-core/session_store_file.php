@@ -5,7 +5,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: session_store_file.php 14595 2012-03-15 22:49:14Z teknocat $
+ * @version 2.0 $Id: session_store_file.php 14744 2012-12-01 20:50:43Z teknocat $
  */
 class SessionStoreFile {
 	/**

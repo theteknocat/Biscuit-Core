@@ -22,7 +22,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.1 $Id: bootstrap.php 14737 2012-11-30 22:56:56Z teknocat $
+ * @version 2.1 $Id: bootstrap.php 14801 2013-03-27 20:14:53Z teknocat $
  */
 
 if (version_compare(PHP_VERSION,"5.2.0","<")) {
@@ -49,7 +49,7 @@ spl_autoload_register('Bootstrap::module_auto_load');
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.1 $Id: bootstrap.php 14737 2012-11-30 22:56:56Z teknocat $
+ * @version 2.1 $Id: bootstrap.php 14801 2013-03-27 20:14:53Z teknocat $
  */
 class Bootstrap {
 	/**

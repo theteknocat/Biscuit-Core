@@ -6,7 +6,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: db.php 14723 2012-11-28 17:15:25Z teknocat $
+ * @version 2.0 $Id: db.php 14793 2013-03-19 19:56:27Z teknocat $
  **/
 class DB {
 	/**
@@ -304,7 +304,13 @@ class DB {
 		$query = preg_replace("/\t+/"," ",$query);	// Replace tabs with spaces
 		$query = preg_replace("/\s\s+/"," ",$query);	// Replace 2 or more spaces with 1 space
 		// Build the log message in CSV format:
-		$log_message = '"'.$db_method.'","'.$called_by.'","'.addslashes($query).'","'.print_r($params,true).'"';
+		$params = (array)$params;
+		if (!empty($params)) {
+			foreach ($params as $key => $value) {
+				$params[$key] = preg_replace('/[\r\n]+/i', '', $value);
+			}
+		}
+		$log_message = '"'.$db_method.'","'.$called_by.'","'.addslashes($query).'","'.addslashes(serialize($params)).'"';
 		// Store in the query log:
 		Console::log_query($log_message);
 	}

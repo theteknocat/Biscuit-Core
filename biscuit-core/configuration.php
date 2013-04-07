@@ -7,7 +7,7 @@ require_once(dirname(__FILE__)."/../config/system_globals.php");
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: configuration.php 14400 2011-11-28 19:57:42Z teknocat $
+ * @version 2.0 $Id: configuration.php 14744 2012-12-01 20:50:43Z teknocat $
  */
 class Configuration implements Singleton {
 	/**
@@ -135,9 +135,6 @@ class Configuration implements Singleton {
 	 * @author Peter Epp
 	 */
 	private function ensure_directory_setup() {
-		if (!Crumbs::ensure_directory(SITE_ROOT."/var/cache/pages")) {
-			$this->set_error('warning',"Page cache directory (/var/cache/pages) does not exist or is not writable. Server-side page caching will not occur, which will impact performance.");
-		}
 		if (!Crumbs::ensure_directory(SITE_ROOT."/var/log")) {
 			$this->set_error('warning',"Log directory (/var/log) does not exist or is not writable. All messages will be routed to the default PHP log file.");
 		}

@@ -5,7 +5,7 @@
 // Author: Peter Epp
 
 var Biscuit = {
-	Version: '1.3.6',
+	Version: '1.3.7',
 	Debug: false,
 	Language: 'en_CA',
 	TranslationsLoaded: false,
@@ -744,7 +744,7 @@ var Biscuit = {
 				Biscuit.Console.log("Submit login form");
 				Biscuit.Crumbs.Forms.DisableSubmit(login_form_id);
 				var params = $(this).serialize();
-				var form_action = $(this).attr('action');
+				var form_action = $(this).prop('action');
 				var url = "";
 				if (form_action !== undefined && form_action !== null) {
 					if (typeof(form_action) == "object") {
@@ -779,7 +779,7 @@ var Biscuit = {
 							});
 						} else if (xhr.status == 403 && response.redirect_page != undefined && response.redirect_page != '') {
 							top.location.href = response.redirect_page;
-						} else {
+						} else if (xhr.status != 500) {
 							var err_msg = xhr.status+" - "+xhr.statusText;
 							Biscuit.Crumbs.Alert(__('uncaught_exception',[err_msg]));
 						}
@@ -789,7 +789,10 @@ var Biscuit = {
 			});
 		},
 		DefaultErrorHandler: function(e, xhr, settings, exception) {
-			if (typeof(settings.error) != 'function' && xhr.status) {
+			if (xhr.status == 500) {
+				// On 500 response, we ignore any defined error function and display the error response.
+				Biscuit.Ajax.ApplicationErrorAlert(xhr.responseText);
+			} else if (typeof(settings.error) != 'function' && xhr.status) {
 				var redirected = false;
 				if (xhr.status == 403) {
 					var response = jQuery.parseJSON(xhr.responseText);
@@ -818,6 +821,31 @@ var Biscuit = {
 			$(document).ajaxError(function(e, xhr, settings, exception) {
 				Biscuit.Ajax.DefaultErrorHandler(e, xhr, settings, exception);
 			});
+		},
+		ApplicationErrorAlert: function(error_content) {
+			$('body').append($('<div>')
+				.attr('id','application-error-message-alert')
+				.css({'display': 'none'})
+				.html(error_content)
+			);
+			var buttons = {};
+			buttons[__('dismiss_button_label')] = function() {
+				$(this).dialog('close');
+			}
+			return $('#application-error-message-alert').dialog({
+				modal: true,
+				title: __('application_error_title'),
+				width: 920,
+				position: 'center',
+				show: 'fade',
+				hide: 'fade',
+				resizable: false,
+				close: function(event, ui) {
+					$('#application-error-message-alert').remove();
+				},
+				buttons: buttons
+			});
+
 		}
 	}
 }
@@ -874,10 +902,13 @@ Biscuit.Ajax.FormValidator.prototype = {
 		$('#'+this._id+' input[type=file]').each(function() {
 			params += "&"+escape($(this).attr('name'))+"="+escape($(this).val());
 		});
-		var url = $('#'+this._id).attr('action');
+		Biscuit.Console.log(params);
+		var url = $('#'+this._id).prop('action');
+		Biscuit.Console.log(url);
 		if (url == "") {
 			url = top.location.href;
 		}
+		Biscuit.Console.log(url);
 		var Validator = this;		// Store a reference for the success function
 		Biscuit.Ajax.Request(url,this.request_type,{
 			data: params,
@@ -911,7 +942,7 @@ Biscuit.Ajax.FormValidator.prototype = {
 							}
 						});
 					}
-				} else {
+				} else if (xhr.status != 500) {
 					var err_msg = xhr.status+" - "+xhr.statusText;
 					Biscuit.Crumbs.Alert(__('uncaught_exception',[err_msg]), __('error_box_title'));
 				}
@@ -946,7 +977,7 @@ Biscuit.Ajax.FormValidator.prototype = {
 	Submit: function() {
 		// Submit the form over AJAX
 		var params = $('#'+this._id).serialize();
-		var url = $('#'+this._id).attr('action');
+		var url = $('#'+this._id).prop('action');
 		if (url == "") {
 			url = top.location.href;
 		}

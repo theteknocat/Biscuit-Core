@@ -6,7 +6,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: abstract_model.php 14737 2012-11-30 22:56:56Z teknocat $
+ * @version 2.0 $Id: abstract_model.php 14801 2013-03-27 20:14:53Z teknocat $
  */
 class AbstractModel extends EventObserver {
 	/**
@@ -292,6 +292,9 @@ class AbstractModel extends EventObserver {
 			if ($related_models !== 'invalid') {
 				return $related_models;
 			}
+		}
+		if (empty($attr_name)) {
+			$attr_name = '';
 		}
 		// Throw an exception if we couldn't find the appropriate method to call
 		throw new ModuleException("Cannot call method: ".get_class($this)."::".$method_name."('".$attr_name."')");

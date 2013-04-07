@@ -6,7 +6,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: migrations.php 14196 2011-09-01 19:08:39Z teknocat $
+ * @version 2.0 $Id: migrations.php 14744 2012-12-01 20:50:43Z teknocat $
  */
 class Migrations {
 	private function __construct() {

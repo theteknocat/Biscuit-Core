@@ -7,7 +7,7 @@
  * @author Lee O'Mara
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 1.0 $Id: fragment_cache.php 14568 2012-03-08 20:29:32Z teknocat $
+ * @version 1.0 $Id: fragment_cache.php 14778 2013-01-15 05:32:34Z teknocat $
  */
 class FragmentCache {
 	/**
@@ -23,7 +23,7 @@ class FragmentCache {
 	 */
 	private $_id;
 	/**
-	 * Type of cache store to use. Defaults to file
+	 * Type of cache store to use. Defaults to database
 	 *
 	 * @var string
 	 */
@@ -42,10 +42,14 @@ class FragmentCache {
 	 * @param string $cache_type 
 	 * @author Peter Epp
 	 */
-	public function __construct($item_type, $id, $cache_type = 'file') {
+	public function __construct($item_type, $id, $cache_type = 'database') {
 		Console::log("New fragment cache for ".$item_type." with ID ".$id);
 		$this->_item_type = $item_type;
 		$this->_id = $id;
+		if ($cache_type == 'database' && !FragmentCacheDatabaseStore::can_use()) {
+			// If database caching cannot be used (if the caching table doesn't exist), fall back on file caching
+			$cache_type = 'file';
+		}
 		$this->_cache_type = $cache_type;
 	}
 	/**
@@ -59,6 +63,9 @@ class FragmentCache {
 			switch ($this->_cache_type) {
 				case 'file':
 					$this->_cache_store = new FragmentCacheFileStore($this->_item_type, $this->_id);
+					break;
+				case 'database':
+					$this->_cache_store = new FragmentCacheDatabaseStore($this->_item_type, $this->_id);
 					break;
 			}
 		}
@@ -134,5 +141,18 @@ class FragmentCache {
 	public function invalidate_all() {
 		Console::log("Invalidate all cached fragments");
 		$this->cache_store()->invalidate_all();
+	}
+	/**
+	 * Empty the entire fragment cache store
+	 *
+	 * @return void
+	 * @author Peter Epp
+	 */
+	public static function empty_all() {
+		if (FragmentCacheDatabaseStore::can_use()) {
+			FragmentCacheDatabaseStore::empty_all();
+		} else {
+			FragmentCacheFileStore::empty_all();
+		}
 	}
 }

@@ -9,7 +9,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 1.0 $Id: zip.php 14770 2013-01-04 19:05:56Z teknocat $
+ * @version 1.0 $Id: zip.php 14768 2013-01-04 19:03:20Z teknocat $
  */
 class Zip {
 	/**

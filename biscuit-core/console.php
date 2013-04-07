@@ -7,7 +7,7 @@ require_once('biscuit-core/vendor/FirePHPCore/fb.php');
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: console.php 14679 2012-06-18 18:37:41Z teknocat $
+ * @version 2.0 $Id: console.php 14760 2012-12-05 20:17:41Z teknocat $
  **/
 class Console {
 	/**
@@ -420,15 +420,20 @@ HTML;
 		if (defined("TECH_EMAIL")) {
 			$error_output['contact_email'] = TECH_EMAIL;
 		}
-		if (Request::is_ajax() || Request::is_ajaxy_iframe_post() || Response::headers_sent()) {
+		if (Request::is_ajax()) {
+			// Send back a rendered HTML response without a template for display in a popup dialog
+			Response::http_status(500);
+			Response::send_headers();
+			include('views/error500-ajax.php');
+		} else if (Request::is_ajaxy_iframe_post() || Response::headers_sent()) {
+			// When it's an ajax iframe post or headers were already sent, do a Javascript redirect
 			Session::set('error_output',$error_output);
 			if (!Response::headers_sent()) {
 				Response::send_headers();
 			}
-			// TODO: have it popup a nice Javascript alert instead of redirecting
 			echo '<script language="javascript" type="text/javascript">top.location.href="/error500";</script>';
-		}
-		else {
+		} else {
+			// Render the regular 500 error page
 			Response::http_status(500);
 			Response::send_headers();
 			include('views/error500.php');

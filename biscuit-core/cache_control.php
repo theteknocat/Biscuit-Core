@@ -6,7 +6,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: cache_control.php 14723 2012-11-28 17:15:25Z teknocat $
+ * @version 2.0 $Id: cache_control.php 14776 2013-01-08 20:46:51Z teknocat $
  */
 class CacheControl extends EventObserver {
 	/**
@@ -56,9 +56,9 @@ class CacheControl extends EventObserver {
 		}
 
 		if ($this->page_cache_allowed()) {
-			$cache_file_time = $this->_cache_file_time();
-			if ($cache_file_time !== null) {
-				$this->_last_updated_timestamp = $cache_file_time;
+			$cache_modified_time = $this->_cache_last_modified();
+			if ($cache_modified_time !== null) {
+				$this->_last_updated_timestamp = $cache_modified_time;
 				$this->_page_cache_is_valid = true;
 			}
 		}
@@ -71,7 +71,7 @@ class CacheControl extends EventObserver {
 			} else {
 				$browser_modified_since = Request::if_modified_since();
 				if (!empty($browser_modified_since)) {
-					Console::log("        Browser reports the following cache file date: ".$browser_modified_since);
+					Console::log("        Browser reports the following cache date: ".$browser_modified_since);
 					$browser_modified_since = strtotime($browser_modified_since);
 				} else {
 					Console::log("        Browser has not provided it's modified since date");
@@ -160,60 +160,61 @@ class CacheControl extends EventObserver {
 		return $this->_page_cache_is_valid;
 	}
 	/**
-	 * Delete all files in the page_cache directory
+	 * Delete everything from the cache_page table
 	 *
 	 * @return void
 	 * @author Peter Epp
 	 */
 	public function empty_cache() {
 		Console::log("Empty page cache");
-		$cache_dirs = FindFiles::ls('/var/cache/pages',array('include_directories' => true, 'include_files' => false));
-		if (!empty($cache_dirs)) {
-			foreach ($cache_dirs as $cache_dir) {
-				Recursive::rmdir(SITE_ROOT.'/var/cache/pages/'.$cache_dir);
-			}
-		}
+		DB::query("DELETE FROM `cache_page`");
+		DB::query("ALTER TABLE `cache_page` auto_increment = 1");
 	}
 	/**
-	 * Return the full path to cache file for current page
+	 * Determine all the parameters that identify the cache store for the current request
 	 *
-	 * @return string
+	 * @return array
 	 * @author Peter Epp
-	 */
-	public function cache_file() {
-		$request_uri = trim(I18n::instance()->request_uri_without_locale(),'/');
-		$curr_locale = I18n::instance()->locale();
-		if (empty($request_uri)) {
-			$request_uri = 'index';
-		} else if (substr($request_uri,-1) == '?') {
-			$request_uri = substr($request_uri,0,-1);
+	 **/
+	private function _cache_parameters() {
+		$full_uri = Request::uri();
+		$locale = I18n::instance()->get_locale_from_uri($full_uri);
+		if (empty($locale)) {
+			$locale = I18n::instance()->locale();
 		}
-		$request_uri_bits = explode('?',$request_uri);
-		$cache_filename = $this->Theme->theme_name().$this->Theme->template_name().substr($request_uri_bits[0],strlen($this->Page->slug()));
-		if (count($request_uri_bits) > 1) {
-			$cache_filename .= $request_uri_bits[1];
-		}
-		$cache_filename .= Request::type();
-		if (Request::is_ajax()) {
-			$cache_filename .= 'ajax';
+		if ($locale != I18n::instance()->locale()) {
+			// If the current locale does not match the URL's locale, find the locale for this URL
+			$locale_id = ModelFactory::instance('BiscuitLocale')->find_by_code($locale)->id();
+		} else {
+			// Otherwise get the current locale's ID
+			$locale_id = I18n::instance()->locale_id();
 		}
 		if ($this->ModuleAuthenticator()->user_is_logged_in()) {
-			$cache_filename .= $this->ModuleAuthenticator()->active_user()->id();
+			$user_level = $this->ModuleAuthenticator()->active_user()->user_level();
+			$user_id = $this->ModuleAuthenticator()->active_user()->id();
+		} else {
+			$user_level = 0;
+			$user_id = null;
 		}
-		$filename_hash = sha1($cache_filename);
-		$cache_directory = $this->_cache_base_dir().'/'.$curr_locale;
-		Crumbs::ensure_directory($cache_directory);
-		$full_cache_file_path = $cache_directory.'/'.$filename_hash.".cache";
-		return $full_cache_file_path;
-	}
-	/**
-	 * Return the full path to the base cache directory for the current page
-	 *
-	 * @return string
-	 * @author Peter Epp
-	 */
-	private function _cache_base_dir() {
-		return SITE_ROOT.'/var/cache/pages/'.$this->Page->slug().'/cache-content';
+		$request_type = Request::type();
+		if (Request::is_ajax()) {
+			$request_type .= '-ajax';
+		}
+		$session_timeout = 0;
+		if ($this->render_with_template()) {
+			$session_timeout = $this->ModuleAuthenticator()->session_timeout();
+		}
+		return array(
+			':full_url'        => $full_uri,
+			':page_id'         => $this->Page->id(),
+			':theme'           => $this->Theme->theme_name(),
+			':template'        => $this->Theme->template_name(),
+			':locale_id'       => $locale_id,
+			':request_type'    => $request_type,
+			':user_level'      => $user_level,
+			':user_id'         => $user_id,
+			':session_timeout' => $session_timeout
+		);
 	}
 	/**
 	 * Write page content to the page cache file
@@ -223,9 +224,25 @@ class CacheControl extends EventObserver {
 	 * @author Peter Epp
 	 */
 	protected function cache_write($page_content) {
-		if (!file_put_contents($this->cache_file(),$page_content)) {
-			throw new CoreException('Failed to write cache file: '.$this->cache_file());
+		$parameters = $this->_cache_parameters();
+		$existing_id = $this->_find_existing_id($parameters);
+		$parameters[':content'] = $page_content;
+		if ($existing_id) {
+			$parameters[':id'] = $existing_id;
+			$query = "REPLACE INTO `cache_page` (`id`, `full_url`, `page_id`, `theme`, `template`, `locale_id`, `request_type`, `user_level`, `user_id`, `session_timeout`, `content`) VALUES (:id, :full_url, :page_id, :theme, :template, :locale_id, :request_type, :user_level, :user_id, :session_timeout, :content)";
+		} else {
+			$query = "INSERT INTO `cache_page` (`full_url`, `page_id`, `theme`, `template`, `locale_id`, `request_type`, `user_level`, `user_id`, `session_timeout`, `content`) VALUES (:full_url, :page_id, :theme, :template, :locale_id, :request_type, :user_level, :user_id, :session_timeout, :content)";
 		}
+		DB::query($query, $parameters);
+	}
+	/**
+	 * Return the ID of a cache item matching provided parameters
+	 *
+	 * @return int|null
+	 * @author Peter Epp
+	 **/
+	protected function _find_existing_id($parameters) {
+		return DB::fetch_one("SELECT `id` FROM `cache_page` WHERE `full_url` = :full_url AND `page_id` = :page_id AND `theme` = :theme AND `template` = :template AND `locale_id` = :locale_id AND `request_type` = :request_type AND `user_level` = :user_level AND `user_id` = :user_id AND `session_timeout` = :session_timeout", $parameters);
 	}
 	/**
 	 * Return the timestamp when the cache file was last modified, or a large negative number if not found
@@ -233,16 +250,16 @@ class CacheControl extends EventObserver {
 	 * @return int Unix timestamp
 	 * @author Peter Epp
 	 */
-	private function _cache_file_time() {
-		$cache_file = $this->cache_file();
-		if (file_exists($cache_file)) {
-			$cache_time = filemtime($cache_file);
-			Console::log("        Page cache last modified on: ".gmdate(GMT_FORMAT, $cache_time));
-		} else {
-			$cache_time = null;
-			Console::log("        Page cache file not found");
+	private function _cache_last_modified() {
+		$parameters = $this->_cache_parameters();
+		$last_modified_time = DB::fetch_one("SELECT `last_modified` FROM `cache_page` WHERE `full_url` = :full_url AND `page_id` = :page_id AND `theme` = :theme AND `template` = :template AND `locale_id` = :locale_id AND `request_type` = :request_type AND `user_level` = :user_level AND `user_id` = :user_id AND `session_timeout` = :session_timeout", $parameters);
+		if (empty($last_modified_time)) {
+			Console::log("        Page cache not found");
+			return null;
 		}
-		return $cache_time;
+		$last_modified_time = (int)$last_modified_time;
+		Console::log("        Page cache last modified on: ".gmdate(GMT_FORMAT, $last_modified_time));
+		return $last_modified_time;
 	}
 	/**
 	 * Return cached page content
@@ -251,7 +268,8 @@ class CacheControl extends EventObserver {
 	 * @author Peter Epp
 	 */
 	protected function cached_content() {
-		return file_get_contents($this->cache_file());
+		$parameters = $this->_cache_parameters();
+		return DB::fetch_one("SELECT `content` FROM `cache_page` WHERE `full_url` = :full_url AND `page_id` = :page_id AND `theme` = :theme AND `template` = :template AND `locale_id` = :locale_id AND `request_type` = :request_type AND `user_level` = :user_level AND `user_id` = :user_id AND `session_timeout` = :session_timeout", $parameters);
 	}
 	/**
 	 * On Biscuit initialization, fire an event if there's a query string requesting cache emptying and then redirect
@@ -298,6 +316,15 @@ class CacheControl extends EventObserver {
 		$this->invalidate_page_cache($model_name);
 	}
 	/**
+	 * Invalidate the cache for a specific URL
+	 *
+	 * @param string $full_url
+	 * @return void
+	 **/
+	public function invalidate_page_cache_by_url($full_url) {
+		DB::query("DELETE FROM `cache_page` WHERE `full_url` = ?", $full_url);
+	}
+	/**
 	 * Invalidate page caches for all pages applicable to the model that was just updated
 	 *
 	 * @param string $module 
@@ -310,10 +337,10 @@ class CacheControl extends EventObserver {
 		} else {
 			$model_name = $model;
 		}
-		Console::log("Invalidate page cache for pages using model: ".$model_name);
-		if ($model_name == 'Page') {
-			// If it's the page model, which is always used everywhere, invalidate all page caches
-			$pages_to_invalidate = DB::fetch("SELECT `slug` FROM `page_index`");
+		if ($model_name == 'Page' || $model_name == 'CustomPage') {
+			// When the page model has been updated, only invalidate the cache that match the page ID as they will be the only ones that should have changed
+			DB::query("DELETE FROM `cache_page` WHERE `page_id` = ?", $model->id());
+			return;
 		} else {
 			// Otherwise, do logic to determine which pages need to be invalidated based on where modules using the model are installed
 			$installed_modules = DB::fetch("SELECT `name` FROM `modules` WHERE `installed` = 1");
@@ -338,17 +365,23 @@ class CacheControl extends EventObserver {
 				Console::log("No info about installed modules! Unpossible!");
 				return;
 			}
+			// Make a list of all page IDs keyed by slug so we don't have to do a query for each module install info row
+			$pages = DB::fetch("SELECT `id`, `slug` FROM `page_index`");
+			$page_ids_by_slug = array();
+			foreach ($pages as $page_data) {
+				$page_ids_by_slug[$page_data['slug']] = $page_data['id'];
+			}
 			$pages_to_invalidate = array();
 			foreach ($module_install_info as $install_info) {
 				// We will invalidate the page cache for any and all pages the module is installed on to be on the safe side as it's not possible to definitively
 				// determine whether or not a module actually renders something on the pages on which it's installed
 				if ($install_info['page_name'] == '*') {
 					// As soon as one module using the model is installed on all pages, set to invalidate all pages and stop here. This should always kick in before
-					// any others are check since data is sorted by page name in ascending order
-					$pages_to_invalidate = DB::fetch("SELECT `slug` FROM `page_index`");
+					// any others are checked since data is sorted by page name in ascending order
+					$pages_to_invalidate = DB::fetch("SELECT `id` FROM `page_index`");
 					break;
 				} else {
-					$pages_to_invalidate[] = $install_info['page_name'];
+					$pages_to_invalidate[] = $page_ids_by_slug[$install_info['page_name']];
 				}
 			}
 		}
@@ -356,10 +389,8 @@ class CacheControl extends EventObserver {
 			Console::log("No pages to invalidate, chill");
 			return;
 		}
-		foreach ($pages_to_invalidate as $page_slug) {
-			$cache_path = SITE_ROOT.'/var/cache/pages/'.$page_slug.'/cache-content';
-			Recursive::rmdir($cache_path);
-		}
+		$pages_to_invalidate_sql = implode(', ', $pages_to_invalidate);
+		DB::query("DELETE FROM `cache_page` WHERE `page_id` IN (".$pages_to_invalidate_sql.")");
 	}
 	/**
 	 * Empty page cache on request

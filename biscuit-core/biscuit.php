@@ -6,7 +6,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.2 $Id: biscuit.php 14749 2012-12-01 21:06:11Z teknocat $
+ * @version 2.2 $Id: biscuit.php 14795 2013-03-27 18:31:54Z teknocat $
  **/
 // TODO Add a mechanism for handling certain file types, like images, in a special when an error 404 occurs.  For example send a "no_image.gif".
 class Biscuit extends ModuleCore implements Singleton {
@@ -74,9 +74,14 @@ class Biscuit extends ModuleCore implements Singleton {
 	/**
 	 * Reference to fragment cache invalidator object
 	 *
-	 * @var string
+	 * @var object
 	 */
 	public $FragmentCacheInvalidator;
+	/**
+	 * Reference to the variable cache object
+	 * @var object
+	 */
+	public $VariableCache;
 	/**
 	 * Return a singleton instance of the Biscuit object
 	 *
@@ -150,6 +155,8 @@ class Biscuit extends ModuleCore implements Singleton {
 		// Start the fragment cache invalidator
 		$this->FragmentCacheInvalidator = new FragmentCacheInvalidator();
 
+		$this->VariableCache = new VariableCache();
+
 		// Setup page factory
 		$this->page_factory = ModelFactory::instance("Page");
 	}
@@ -213,7 +220,7 @@ class Biscuit extends ModuleCore implements Singleton {
 		$page_found = true;
 		try {
 			if (Request::slug() == 'cron') {
-				$this->set_never_cache(); // Never cache cron requests
+				$this->set_never_cache(); // Never cache cron page requests
 				Console::log("Running cron jobs");
 				Cron::add_message($this,"Cron dispatching");
 				Event::fire('cron_run');
@@ -491,7 +498,7 @@ class Biscuit extends ModuleCore implements Singleton {
 			Console::log("    Using cached page content");
 			// Send a header that indicates the page was loaded from cache. Handy for troubleshooting
 			Response::add_header('X-Biscuit-Cache', 'HIT');
-			if (Request::type() == 'json') {
+			if (Request::is_json()) {
 				// Make sure we send the right response headers for JSON, when applicable
 				Response::content_type("application/json");
 				Response::add_header("X-JSON","true");

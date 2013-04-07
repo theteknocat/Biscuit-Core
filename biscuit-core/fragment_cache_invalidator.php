@@ -6,7 +6,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 1.0 $Id: fragment_cache_invalidator.php 14196 2011-09-01 19:08:39Z teknocat $
+ * @version 1.0 $Id: fragment_cache_invalidator.php 14778 2013-01-15 05:32:34Z teknocat $
  */
 class FragmentCacheInvalidator extends EventObserver {
 	/**
@@ -49,34 +49,12 @@ class FragmentCacheInvalidator extends EventObserver {
 		$fcache->invalidate_all();
 	}
 	/**
-	 * Empty the entire fragment cache folder
-	 *
-	 * @return void
-	 * @author Peter Epp
-	 */
-	private function empty_entire_cache() {
-		Console::log("Empty fragment cache");
-		$files = FindFiles::ls('/var/cache/fragments',array('types' => 'cache'),true,true);
-		if (!empty($files)) {
-			foreach ($files as $file) {
-				@unlink($file);
-			}
-			$dirs = FindFiles::ls('/var/cache/fragments',array('include_files' => false, 'include_directories' => true),true,true);
-			if (!empty($dirs)) {
-				rsort($dirs);
-				foreach ($dirs as $dir) {
-					@rmdir($dir);
-				}
-			}
-		}
-	}
-	/**
-	 * Empty entire fragment cache folder
+	 * Empty entire fragment cache on cache empty requests
 	 *
 	 * @return void
 	 * @author Peter Epp
 	 */
 	protected function act_on_empty_cache_request() {
-		$this->empty_entire_cache();
+		FragmentCache::empty_all();
 	}
 }

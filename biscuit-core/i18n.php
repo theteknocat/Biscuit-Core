@@ -7,7 +7,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.2 $Id: i18n.php 14752 2012-12-01 21:28:48Z teknocat $
+ * @version 2.2 $Id: i18n.php 14751 2012-12-01 21:28:30Z teknocat $
  */
 class I18n extends EventObserver implements Singleton {
 	/**
@@ -156,19 +156,28 @@ class I18n extends EventObserver implements Singleton {
 		return preg_match('/^\/(([a-z]{2,3})_([A-Z]{2,3}))\/?.*$/',Request::uri());
 	}
 	/**
-	 * Return the Request URI with locale stripped out of it
+	 * Return the Request URI with locale, if present, stripped out
 	 *
 	 * @return void
 	 * @author Peter Epp
 	 */
 	public function request_uri_without_locale() {
-		$locale_from_uri = $this->get_locale_from_uri();
+		return $this->uri_without_locale(Request::uri());
+	}
+	/**
+	 * Return any given URI with locale, if present, stripped out
+	 *
+	 * @param $uri string
+	 * @return string
+	 * @author Peter Epp
+	 **/
+	public function uri_without_locale($uri) {
+		$locale_from_uri = $this->get_locale_from_uri($uri);
 		if (!empty($locale_from_uri)) {
 			$locale_from_uri = '/'.$locale_from_uri;
-			$request_uri = Request::uri();
-			return substr($request_uri,strlen($locale_from_uri));
+			return substr($uri,strlen($locale_from_uri));
 		}
-		return Request::uri();
+		return $uri;
 	}
 	/**
 	 * Extract the locale from URI, if present, and return it
@@ -176,8 +185,11 @@ class I18n extends EventObserver implements Singleton {
 	 * @return string|null
 	 * @author Peter Epp
 	 */
-	public function get_locale_from_uri() {
-		preg_match('/^\/(([a-z]{2,3})_([A-Z]{2,3}))\/?.*$/',Request::uri(),$matches);
+	public function get_locale_from_uri($uri = null) {
+		if (empty($uri)) {
+			$uri = Request::uri();
+		}
+		preg_match('/^\/(([a-z]{2,3})_([A-Z]{2,3}))\/?.*$/',$uri,$matches);
 		if (!empty($matches) && !empty($matches[1])) {
 			return $matches[1];
 		}
@@ -273,6 +285,15 @@ class I18n extends EventObserver implements Singleton {
 	 */
 	public function locale() {
 		return $this->_curr_locale->code();
+	}
+	/**
+	 * Return the current locale's ID
+	 *
+	 * @return int
+	 * @author Peter Epp
+	 **/
+	public function locale_id() {
+		return $this->_curr_locale->id();
 	}
 	/**
 	 * Return the locale in format for meta data - with hyphen instead of underscore

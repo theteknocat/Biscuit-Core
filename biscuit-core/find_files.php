@@ -6,7 +6,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: find_files.php 14196 2011-09-01 19:08:39Z teknocat $
+ * @version 2.0 $Id: find_files.php 14800 2013-03-27 20:14:02Z teknocat $
  */
 class FindFiles extends FilterIterator {
 	/**
@@ -96,7 +96,7 @@ class FindFiles extends FilterIterator {
 	 */
 	public function accept() {
 		$current_file = $this->current();
-		if (method_exists($current_file,'isDot') && $current_file->isDot()) {
+		if ($current_file->getFilename() == '.' || $current_file->getFilename() == '..') {
 			return false;
 		}
 		if (in_array($current_file->getFilename(), $this->exclude_files)) {

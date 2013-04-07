@@ -6,39 +6,16 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 1.0 $Id: fragment_cache_file_store.php 14196 2011-09-01 19:08:39Z teknocat $
+ * @version 1.0 $Id: fragment_cache_file_store.php 14778 2013-01-15 05:32:34Z teknocat $
  */
-class FragmentCacheFileStore {
-	/**
-	 * Type of item being cached (eg. "User")
-	 *
-	 * @var string
-	 */
-	private $_item_type;
-	/**
-	 * ID of the item
-	 *
-	 * @var string
-	 */
-	private $_id;
-	/**
-	 * Stash the name and ID of the item to cache
-	 *
-	 * @param string $name 
-	 * @param string $id 
-	 * @author Peter Epp
-	 */
-	public function __construct($item_type, $id) {
-		$this->_item_type = $item_type;
-		$this->_id = $id;
-	}
+class FragmentCacheFileStore extends FragmentCacheStore {
 	/**
 	 * Return the path to the cache directory
 	 *
 	 * @return string
 	 * @author Peter Epp
 	 */
-	public function store_path(){
+	private function store_path(){
 		$path = '/var/cache/fragments/'.$this->_item_type.'/'.$this->_id;
 		if (Crumbs::ensure_directory(SITE_ROOT.$path)) {
 			return $path;
@@ -51,7 +28,7 @@ class FragmentCacheFileStore {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	public function fragment_file($fragment_name) {
+	private function fragment_file($fragment_name) {
 		$locale = I18n::instance()->locale();
 		return $this->store_path().'/'.$fragment_name.'-'.$locale.'.cache';
 	}
@@ -106,6 +83,27 @@ class FragmentCacheFileStore {
 					@unlink(SITE_ROOT.$store_path.'/'.$filename);
 				}
 				@rmdir(SITE_ROOT.$store_path);
+			}
+		}
+	}
+	/**
+	 * Empty the entire contents of the fragment cache
+	 *
+	 * @return void
+	 * @author Peter Epp
+	 */
+	public static function empty_all() {
+		$files = FindFiles::ls('/var/cache/fragments',array('types' => 'cache'),true,true);
+		if (!empty($files)) {
+			foreach ($files as $file) {
+				@unlink($file);
+			}
+			$dirs = FindFiles::ls('/var/cache/fragments',array('include_files' => false, 'include_directories' => true),true,true);
+			if (!empty($dirs)) {
+				rsort($dirs);
+				foreach ($dirs as $dir) {
+					@rmdir($dir);
+				}
 			}
 		}
 	}

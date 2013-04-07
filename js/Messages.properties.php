@@ -67,6 +67,8 @@ saving = <?php echo __('Saving Changes...'); ?>
 
 refreshing = <?php echo __('Refreshing Content...'); ?>
 
+application_error_title = <?php echo __('Application Error'); ?>
+
 time_in_under_minute = <?php echo __('In less than a minute'); ?>
 
 time_under_minute_ago = <?php echo __('Less than a minute ago'); ?>

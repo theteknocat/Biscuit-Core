@@ -6,7 +6,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.1 $Id: installer-class.php 14656 2012-06-02 18:29:59Z teknocat $
+ * @version 2.1 $Id: installer-class.php 14788 2013-01-23 05:44:28Z teknocat $
  */
 class Install {
 	/**
@@ -640,9 +640,15 @@ class Install {
 	 */
 	protected function _get_install_sql_queries($db_dump_file = null) {
 		if (empty($db_dump_file)) {
-			$db_dump_file = Crumbs::file_exists_in_load_path('install/database.sql');
+			$sql_dump_lines = file(FW_ROOT.'/install/database.sql');
+			$site_db_dump_file = SITE_ROOT.'/install/database.sql';
+			if (file_exists($site_db_dump_file)) {
+				$site_db_dump_lines = file($site_db_dump_file);
+				$sql_dump_lines = array_merge($sql_dump_lines, $site_db_dump_lines);
+			}
+		} else {
+			$sql_dump_lines = file($db_dump_file);
 		}
-		$sql_dump_lines = file($db_dump_file);
 		// Filter out the unwanted lines from the dump file:
 		foreach ($sql_dump_lines as $index => $line) {
 			if (substr($line,0,1) == '#' || substr($line,0,2) == '--') {

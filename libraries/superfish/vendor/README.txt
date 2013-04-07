@@ -1,0 +1,1 @@
+This version of Superfish has been modified from it's original version to include closing animation.

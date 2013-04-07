@@ -1,9 +1,6 @@
 [submodule "extensions/blue_print_css"]
 	path = extensions/blue_print_css
 	url = git@github.com:theteknocat/Biscuit-BlueprintCSS.git
-[submodule "extensions/debug_bar"]
-	path = extensions/debug_bar
-	url = git@github.com:theteknocat/Biscuit-DebugBar.git
 [submodule "extensions/html_purify"]
 	path = extensions/html_purify
 	url = git@github.com:theteknocat/Biscuit-HtmlPurifier.git
@@ -16,9 +13,12 @@
 [submodule "modules/captcha"]
 	path = modules/captcha
 	url = git@github.com:theteknocat/Biscuit-Captcha.git
-[submodule "modules/hit_counter"]
-	path = modules/hit_counter
-	url = git@github.com:theteknocat/Biscuit-HitCounter.git
 [submodule "modules/system_admin"]
 	path = modules/system_admin
 	url = git@github.com:theteknocat/Biscuit-SystemAdmin.git
+[submodule "modules/help"]
+	path = modules/help
+	url = git@github.com:theteknocat/Biscuit-Help.git
+[submodule "modules/file_manager"]
+	path = modules/file_manager
+	url = git@github.com:theteknocat/Biscuit-FileManager.git

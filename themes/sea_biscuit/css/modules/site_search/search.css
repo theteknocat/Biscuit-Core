@@ -1,0 +1,131 @@
+/* All the normal search module CSS */
+#site-search-form {
+	position: relative;
+	overflow: visible;
+}
+
+#ajax-search-result-container {
+	position: absolute;
+	display: none;
+	border: 1px solid #666;
+	background: #fff;
+	width: 300px;
+	z-index: 50000;
+	-moz-box-shadow: 3px 5px 30px #333;
+	-webkit-box-shadow: 3px 5px 30px #333;
+}
+
+#ajax-search-results h4 {
+	margin: 0;
+	background: #bde6fe;
+	padding: 5px;
+}
+
+#ajax-search-top-hits-content .search-result a,
+#ajax-search-top-hits-content .search-result a:visited,
+#ajax-search-top-hits-content .search-result a:active,
+#ajax-search-top-hits-content .search-result a:focus {
+	display: block;
+	padding: 5px;
+	background: none;
+}
+
+#ajax-search-top-hits-content .search-result a:hover {
+	background: #7ac2f4;
+}
+
+#ajax-search-throbber {
+	float: right;
+}
+
+#ajax-search-result-container #ajax-search-results #ajax-search-top-hits-content p.none-found {
+	margin: 20px 0;
+	text-align: center;
+	font-size: 16px;
+	color: #bbb;
+}
+
+#ajax-search-see-all-link {
+	padding: 5px;
+	text-align: center;
+}
+
+h3#search-summary {
+	text-align: center;
+	margin: 15px 0;
+}
+
+#site-search-results .search-result {
+	padding: 15px;
+}
+
+#site-search-results .search-result p.small {
+	margin: 0;
+}
+
+#site-search-results .search-result em {
+	background: #fff690;
+	padding: 1px 8px;
+	-moz-border-radius: 10px;
+	-webkit-border-radius: 10px;
+	border-radius: 10px;
+	border: 1px solid #666;
+	-moz-box-shadow: 1px 1px 2px #000;
+	-webkit-box-shadow: 1px 1px 2px #000;
+	box-shadow: 1px 1px 2px #000;
+	font-style: normal;
+	color: #000;
+}
+#site-search-results .search-result h4 em {
+	-moz-border-radius: 12px;
+	-webkit-border-radius: 12px;
+	border-radius: 12px;
+}
+
+/* This theme's special styles for the sidebar search widget */
+#body-wrap #left-bar #search-widget {
+	padding: 10px 0;
+	background: #8199b6;
+	border-bottom: 1px solid #6981a0;
+}
+#body-wrap #left-bar #search-widget #site-search-form #search-keywords-field {
+	float: left;
+	-webkit-border-radius: 10px;
+	-webkit-border-top-right-radius: 0;
+	-webkit-border-bottom-right-radius: 0;
+	-moz-border-radius: 10px;
+	-moz-border-radius-topright: 0;
+	-moz-border-radius-bottomright: 0;
+	border-radius: 10px;
+	border-top-right-radius: 0;
+	border-bottom-right-radius: 0;
+	margin: 0 0 0 8px;
+	padding: 1px 5px 1px 8px;
+	width: 147px;
+	border: none;
+	border-left: 1px solid #1762F3;
+	border-top: 1px solid #1762F3;
+	border-bottom: 1px solid #1762F3;
+	font-size: 10px;
+	line-height: 14px;
+	height: 15px;
+	-moz-box-shadow: 1px 1px 5px #aaa;
+	-webkit-box-shadow: 1px 1px 5px #aaa;
+	box-shadow: 1px 1px 5px #aaa;
+}
+#body-wrap #left-bar #search-widget #site-search-form .SubmitButton {
+	-webkit-border-top-left-radius: 0;
+	-webkit-border-bottom-left-radius: 0;
+	-moz-border-radius-topleft: 0;
+	-moz-border-radius-bottomleft: 0;
+	border-top-left-radius: 0;
+	border-bottom-left-radius: 0;
+	padding: 1px 0;
+	float: left;
+	width: 55px;
+	line-height: 15px;
+}
+#body-wrap #left-bar #search-widget #site-search-form p {
+	padding: 0;
+	height: 20px;
+}

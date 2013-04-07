@@ -1,4 +1,11 @@
-<?php echo $TinyMce->render_standalone_file_browser_field($media_type,$id,$name,$label,$default_value,$is_required,$is_valid,array('maxlength' => '255')) ?>
+<span class="file-browse-field"><?php
+if ($no_file_manager) {
+	echo __('No file manager available!');
+} else {
+?>
+<?php
+print Form::text($id,$name,$label,$default_value,$required,$is_valid,array('maxlength' => '255'));
+?><a href="#file-browser" id="file-browse-button-<?php echo $id; ?>" class="file-browse-button <?php echo $button_class; ?>"><?php echo __('Browse/Upload'); ?></a></span>
 <span class="instructions">
 	<?php
 	if (empty($instructions)) {
@@ -9,4 +16,14 @@
 		echo __($instructions);
 	}
 	?>
-</span>
+<script type="text/javascript">
+	$(document).ready(function() {
+		$('#file-browse-button-<?php echo $id; ?>').click(function() {
+			<?php echo $js_callback; ?>;
+			return false;
+		});
+	});
+</script>
+<?php
+}
+?></span>

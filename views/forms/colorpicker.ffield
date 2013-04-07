@@ -1,0 +1,64 @@
+<?php
+if (empty($default_value)) {
+	$picker_colour = '#ffffff';
+} else {
+	$picker_colour = '#'.$default_value;
+}
+?>
+<label for="attr_<?php echo $id ?>"<?php if (!$is_valid) { ?> class="error"<?php } ?>><?php if ($required) { echo '*'; } echo $label ?>:</label>
+<span class="field-container<?php if (!$is_valid) { ?> error<?php } ?>">
+	<a class="ui-button colour-picker" id="colorpicker-<?php echo $id; ?>-actuator" href="#pick-colour">Colour</a>
+	<input type="hidden" name="<?php echo $name; ?>" id="attr_<?php echo $id ?>" value="<?php echo $default_value; ?>">
+	<span style="display: block;" class="clearance"></span>
+</span>
+<span style="display: block;" class="clearance"></span>
+<script type="text/javascript">
+	<?php
+	if (!Request::is_ajax()) {
+	?>
+	$(document).ready(function() {
+	<?php
+	}
+	?>
+		$('#colorpicker-<?php echo $id; ?>-actuator').button({
+			icons: {
+				secondary: 'ui-icon-triangle-1-s'
+			}
+		});
+		$('#colorpicker-<?php echo $id; ?>-actuator .ui-button-text').css({
+			'background': '<?php echo $picker_colour; ?>'
+		});
+		$('#colorpicker-<?php echo $id; ?>-actuator').ColorPicker({
+			color: '<?php echo $picker_colour; ?>',
+			onSubmit: function(hsb, hex, rgb, el) {
+				$('#attr_<?php echo $id; ?>').val(hex);
+				$(el).ColorPickerHide();
+				$('#colorpicker-<?php echo $id; ?>-actuator .ui-button-text').css({
+					'background': '#'+hex
+				})
+				<?php
+				if (!empty($change_callback)) {
+					echo $change_callback;?>(hex, rgb, hsb);<?php
+				}
+				?>
+			},
+			onChange: function(hsb, hex, rgb) {
+				$('#colorpicker-<?php echo $id; ?>-actuator .ui-button-text').css({
+					'background': '#'+hex
+				});
+				$('#attr_<?php echo $id; ?>').val(hex);
+				<?php
+				if (!empty($change_callback)) {
+					echo $change_callback;?>(hex, rgb, hsb);<?php
+				}
+				?>
+			}
+		});
+	<?php
+	if (!Request::is_ajax()) {
+	?>
+	});
+	<?php
+	}
+	?>
+</script>

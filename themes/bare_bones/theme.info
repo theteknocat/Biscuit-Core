@@ -1,0 +1,5 @@
+name = "Bare Bones"
+description = "A bare bones theme for use as a starting point for new custom themes. Copy it into your site's themes folder, rename and customize from there."
+version = "1.0"
+author = "Peter Epp"
+author_link = "http://teknocat.org"

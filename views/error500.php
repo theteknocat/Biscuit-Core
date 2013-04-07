@@ -1,6 +1,13 @@
 <?php
 	if (!class_exists('Biscuit')) {
-		require_once(dirname(__FILE__).'/../../config/global.php');
+		require_once(dirname(__FILE__).'/../config/system_globals.php');
+		require_once(SITE_ROOT.'/config/global.php');
+		require_once(FW_ROOT.'/biscuit-core/singleton.php');
+		require_once(FW_ROOT.'/biscuit-core/event_observer.php');
+		require_once(FW_ROOT.'/biscuit-core/cache_control.php');
+		require_once(FW_ROOT.'/biscuit-core/extension_core.php');
+		require_once(FW_ROOT.'/biscuit-core/module_core.php');
+		require_once(FW_ROOT.'/biscuit-core/biscuit.php');
 		session_name(SESSION_NAME);
 		session_start();
 		if (!empty($_SESSION['error_output'])) {
@@ -8,7 +15,7 @@
 		}
 	}
 ?>
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<!DOCTYPE html>
 <html>
 	<head>
 		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
@@ -22,16 +29,16 @@
 		<link rel="stylesheet" type="text/css" href="/framework/extensions/blue_print_css/css/print.css" media="print">
 		<link rel="stylesheet" type="text/css" href="/framework/themes/default/css/styles_screen.css" media="screen, projection">
 	</head>
-	<body class="error-page">
+	<body class="single-column">
 		<!-- Start Main Container -->
 		<div id="header">
 			<div id="banner">
-				<h1>Biscuit - The Rapid Application Development Framework</h1>
+				<h1><a name="page-title">Biscuit - The Rapid Application Development Framework</a></h1>
 			</div>
 		</div>
 		<div id="body-wrap">
 			<div id="body" class="indexable-content">
-				<h1>Application Error</h1>
+				<h2>Application Error</h2>
 				<?php
 				if (!empty($error_output['message']) && $error_output['is_debug_mode']) {	// Show message for the programmer
 				?>
@@ -56,7 +63,7 @@
 						?><p>A detailed report of the error has been sent to the webmaster, who will address it as soon as possible. We apologize for any inconvenience this may cause, and ask for your understanding while we resolve the problem.</p><?php
 					} else if (!empty($error_output['contact_email'])) {
 						?>
-					<p>If you continually receive this notice when you try to access this, please <a href="mailto:<?php echo $error_output['contact_email']; ?>">contact the webmaster</a> to report the problem.</p>
+					<p>If you continually receive this notice, please <a href="mailto:<?php echo $error_output['contact_email']; ?>">contact the webmaster</a> to report the problem.</p>
 						<?php
 					}
 					?>
@@ -70,10 +77,9 @@
 		<!-- End Main Body -->
 		<!-- Start Page Footer -->
 		<div id="footer">
-			<div id="footer-content">
-				&nbsp;
-			</div>
+			<div id="copyright">Biscuit <?php echo Biscuit::version(); ?> Copyright &copy; Peter Epp</div>
 		</div>
+		<!-- End Page Footer -->
 	</body>
 </html>
 <?php

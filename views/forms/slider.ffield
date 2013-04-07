@@ -1,0 +1,38 @@
+<label<?php if (!$is_valid) { ?> class="error"<?php } ?>><?php if ($required) { echo '*'; } echo $label ?>:</label>
+<div class="complex-element-container<?php if (!$is_valid) { ?> error<?php } ?>">
+	<div style="width: 80%; float: left"><div id="<?php echo $id; ?>-slider"></div></div><div style="float: left; margin: 0; padding: 0 0 0 15px; height: 12px; line-height: 12px;" class="small" id="attr-<?php echo $id; ?>-value"><?php echo $default_value.$units; ?></div>
+	<input type="hidden" name="<?php echo $name; ?>" id="attr_<?php echo $id; ?>" value="<?php echo $default_value; ?>">
+	<script type="text/javascript">
+		<?php
+		if (!Request::is_ajax()) {
+		?>
+		$(document).ready(function() {
+		<?php
+		}
+		?>
+			$('#<?php echo $id; ?>-slider').slider({
+				min: <?php echo $min; ?>,
+				max: <?php echo $max; ?>,
+				step: <?php echo $step; ?>,
+				value: <?php if (!empty($default_value)) { echo $default_value; } else { echo 0; } ?>,
+				slide: function(event, ui) {
+					$('#attr_<?php echo $id; ?>').val(ui.value);
+					$('#attr-<?php echo $id; ?>-value').text(ui.value+'<?php echo $units; ?>');
+					<?php
+					if (!empty($change_callback)) {
+						echo $change_callback;?>(ui.value);<?php
+					}
+					?>
+				}
+			});
+		<?php
+		if (!Request::is_ajax()) {
+		?>
+		});
+		<?php
+		}
+		?>
+	</script>
+	<div class="clearance"></div>
+</div>
+<div class="clearance"></div>

@@ -48,9 +48,9 @@ define('LOGGING_LEVEL',3);
 define('DEBUG',true);
 
 /**
- * Whether or not the debug bar extension is enabled. Disabled by default
+ * Forcefully disable caching if desired
  */
-define('DISABLE_DEBUG_BAR',true);
+define("NO_CACHE",false);
 
 /**
  * What type of server is this?  Options are:

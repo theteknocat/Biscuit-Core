@@ -39,7 +39,7 @@ define('FW_MODULE_PATH',FW_ROOT.'/modules');
 /**
  * Path to the temporary folder.  This folder will be created on first run if it doesn't exist
  */
-define('TEMP_DIR',SITE_ROOT."/tmp");
+define('TEMP_DIR',SITE_ROOT."/var/tmp");
 /**
  * The format for GMT dates
  */

@@ -1,0 +1,404 @@
+/* Form Styles */
+form label {
+	display: block;
+	float: left;
+	width: 175px;
+	margin: 2px;
+	padding: 2px 5px 2px 2px;
+	text-align: right;
+	font-size: 12px;
+}
+form label.error {
+	background: none;
+	border: none;
+	margin: 2px;
+	padding: 2px 5px 2px 2px;
+}
+form label.radio-button-label {
+	width: auto;
+	font-weight: normal;
+	text-align: left;
+	padding: 0 5px;
+	margin: 0 10px 0 0;
+	cursor: pointer;
+}
+form label.radio-button-label:hover {
+	background: #444;
+	color: #ccc;
+}
+form span.radio-label-pair {
+	display: block;
+	float: left;
+	clear: both;
+}
+form span.field-container {
+	display: block;
+	float: left;
+	width: auto;
+	margin: 2px;
+	padding: 2px;
+}
+form p, form p.small {
+	clear: both;
+	padding: 5px;
+	margin: 0;
+}
+.stripe-even {
+	background: #ddd;
+}
+.stripe-odd {
+	background: #eee;
+}
+form span.instructions {
+	margin: 8px 0 0 186px;
+	font-size: 10px;
+	display: block;
+	clear: both;
+}
+fieldset {
+	-moz-border-radius: 8px;
+	-webkit-border-radius: 8px;
+	border-radius: 8px;
+	background: #fff;
+	padding: 15px;
+	border: 1px solid #999;
+}
+fieldset.collapsed {
+	padding: 0 15px;
+	border-left: none;
+	border-right: none;
+	border-bottom: none;
+	background: none;
+}
+fieldset legend {
+	padding: 2px 15px;
+	border: 1px solid #999;
+	background: #eee url(/framework/themes/sea_biscuit/images/controls-bg.gif) left top repeat-x;
+	-moz-border-radius: 10px;
+	-webkit-border-radius: 10px;
+	border-radius: 10px;
+	color: #444;
+	font-size: 12px;
+}
+form input.radio-button {
+	float: left;
+	padding: 0;
+	margin: 3px;
+	cursor: pointer;
+}
+textarea {
+	font-family: inherit;
+}
+input.text, input.title, input.file, textarea, select {
+	background: #F6F6F6;
+	padding: 2px;
+	margin: 2px 0;
+	font-size: 12px;
+	-moz-border-radius: 4px;
+	-webkit-border-radius: 4px;
+	border-radius: 4px;
+	-moz-box-shadow: 1px 1px 5px #888;
+	-webkit-box-shadow: 1px 1px 5px #888;
+	box-shadow: 1px 1px 5px #888;
+	color: #000;
+}
+input.text.error,
+input.text.error:focus,
+input.text.error:focus,
+input.file.error:focus,
+input.title.error:focus,
+textarea.error,
+select.error {
+	border: 1px solid #D12F19;
+	background: #FBE3E4;
+	color: #000;
+	-moz-box-shadow: 1px 1px 5px #f6acaf;
+	-webkit-box-shadow: 1px 1px 5px #f6acaf;
+	box-shadow: 1px 1px 5px #f6acaf;
+	padding: 2px;
+	margin: 2px 0;
+}
+
+/* Containers for complex elements */
+.complex-element {
+	padding: 5px;
+}
+.complex-element-container {
+	display: block;
+	margin: 0 0 0 186px;
+	-moz-border-radius: 4px;
+	-webkit-border-radius: 4px;
+	border-radius: 4px;
+	-moz-box-shadow: 1px 1px 5px #888;
+	-webkit-box-shadow: 1px 1px 5px #888;
+	box-shadow: 1px 1px 5px #888;
+	padding: 10px;
+	border: 1px solid #bbb;
+	width: 384px;
+	background: #F6F6F6;
+}
+
+form .complex-element-container .instructions {
+	font-size: 10px;
+	margin: 10px 0 0;
+	padding: 0 !important;
+}
+.complex-element-container .item {
+	padding: 5px;
+	margin: 5px 0;
+	height: 18px;
+}
+.complex-element-container .item .remove-link,
+.complex-element-container .item .remove-link:visited,
+.complex-element-container .item .remove-link:active,
+.complex-element-container .item .remove-link:focus {
+	float: right;
+	display: block;
+	width: 15px;
+	height: 15px;
+	background: #c92c2c url(/framework/themes/sea_biscuit/images/x-button.png) left top no-repeat;
+	-moz-border-radius: 5px;
+	-webkit-border-radius: 5px;
+	border-radius: 5px;
+	-moz-box-shadow: 1px 1px 2px #000;
+	-webkit-box-shadow: 1px 1px 2px #000;
+	box-shadow: 1px 1px 2px #000;
+	border: 1px solid #9c1919;
+	text-indent: -3000em;
+	overflow: hidden;
+}
+.complex-element-container .item .remove-link:hover {
+	background-color: #9c1919;
+}
+
+input.SubmitButton {
+	background: #539df3 url(/framework/themes/sea_biscuit/images/submit-bg-outset.gif) center center repeat-x;
+	border: 1px solid #1762f3;
+	padding: 1px 20px;
+	margin: 0;
+	font-size: 10px;
+	line-height: 17px;
+	font-weight: bold;
+	-moz-border-radius: 10px;
+	-webkit-border-radius: 10px;
+	border-radius: 10px;
+	-webkit-box-shadow: #aaa 1px 1px 5px;
+	-moz-box-shadow: #aaa 1px 1px 5px;
+	box-shadow: #aaa 1px 1px 5px;
+	color: #fff;
+	text-shadow: 1px 1px 0 #333;
+}
+input.SubmitButton:hover {
+	background: #1762f3 url(/framework/themes/sea_biscuit/images/submit-bg-inset.gif) center center repeat-x;
+	cursor: pointer;
+}
+input.SubmitButton.working,
+input.SubmitButton.working:hover {
+	background-color: #539df3;
+	background-image: url(/framework/themes/sea_biscuit/images/submit-button-throbber.gif);
+	background-position: center center;
+	background-repeat: no-repeat;
+}
+.login-form input.text,
+.login-form label {
+	font-size: 16px;
+}
+.ui-dialog-content .login-form input.text {
+	width: 230px;
+}
+.leftfloat {
+	float: left;
+}
+.rightfloat {
+	float: right;
+}
+
+.controls, .paging {
+	text-align: right;
+	height: 20px;
+	line-height: 17px;
+	padding: 5px;
+	border: 1px solid #888;
+	clear: both;
+	margin: 15px 0 10px;
+	-moz-border-radius: 14px;
+	-webkit-border-radius: 14px;
+	border-radius: 14px;
+	font-family: 'Lucida Grande','Lucida Sans Unicode',Arial,Helvetica,sans-serif !important;
+	position: relative;
+	z-index: 0;
+}
+
+.controls {
+	background: #eee url(/framework/themes/sea_biscuit/images/controls-bg.gif);
+}
+
+.paging {
+	background: #fff url(/framework/themes/sea_biscuit/images/paging-bg.gif);
+}
+
+.controls.admin {
+	text-align: left;
+	font-size: 14px;
+	color: #aaa;
+}
+
+fieldset .controls, td .controls {
+	background: none;
+	border: none;
+	padding: 0;
+	float: right;
+	margin: 0;
+}
+
+.controls a,
+.controls a:visited,
+.controls a:focus,
+.paging a,
+.paging a:visited,
+.paging a:focus,
+.paging span.page-number,
+.file-browse-field a,
+a.ui-button {
+	font-family: 'Lucida Grande','Lucida Sans Unicode',Arial,Helvetica,sans-serif !important;
+	display: block;
+	float: left;
+	font-size: 10px !important;
+	height: 16px;
+	line-height: 17px;
+	padding: 1px 10px;
+	border: 1px solid #888;
+	text-decoration: none !important;
+	-moz-border-radius: 10px;
+	-webkit-border-radius: 10px;
+	border-radius: 10px;
+	-webkit-box-shadow: #aaa 1px 1px 5px;
+	-moz-box-shadow: #aaa 1px 1px 5px;
+	box-shadow: #aaa 1px 1px 5px;
+	background: #bbb url(/framework/themes/sea_biscuit/images/jquery-ui/ui-bg_highlight-hard_100_bbbbbb_1x100.png) repeat-x 50% 50%;
+	color: #222 !important;
+	text-shadow: 1px 1px 0 #ddd;
+	position: relative;
+	font-weight: normal !important;
+	z-index: 1;
+}
+.paging .page-links-right {
+	float: right;
+}
+
+.controls a,
+.controls a:active,
+.controls a:visited,
+.controls a:focus,
+.paging a,
+.paging a:active,
+.paging a:visited,
+.paging a:focus,
+a.ui-button {
+	margin: 0 5px 0 0;
+}
+
+.controls a.btn-right,
+.controls a.btn-right:active,
+.controls a.btn-right:visited,
+.controls a.btn-right:focus,
+.controls a.btn-right:hover {
+	margin: 0 0 0 5px !important;
+	float: right !important;
+}
+
+.paging .page-links-right a,
+.paging .page-links-right a:active,
+.paging .page-links-right a:visited,
+.paging .page-links-right a:focus {
+	margin: 0 0 0 5px;
+}
+
+.paging span.page-number {
+	margin: 0 5px 0 0;
+	background: #fff;
+}
+
+.paging .page-links-right span.page-number {
+	margin: 0 0 0 5px;
+}
+
+.paging .paging-title {
+	display: block;
+	float: left;
+	color: #888;
+	font-size: 14px;
+	margin: 0 5px 0 4px;
+}
+
+a.delete-button,
+a.delete-button:visited,
+a.delete-button:active,
+a.delete-button:focus {
+	color: #c50800 !important;
+}
+
+.file-browse-field {
+	display: block;
+	height: 26px;
+}
+
+.file-browse-field a {
+	margin: 2px 0 2px 5px;
+}
+
+.file-browse-field input.text {
+	float: left;
+}
+
+.controls span.admin {
+	display: block;
+	position: absolute;
+	left: 5px;
+	top: 5px;
+	z-index: 0;
+	font-size: 14px;
+	line-height: 20px;
+	color: #888;
+	margin: 0 0 0 4px;
+}
+
+fieldset .controls a, td .controls a,
+fieldset .controls a:active, td .controls a:active,
+fieldset .controls a:visited, td .controls a:visited,
+fieldset .controls a:focus, td .controls a:focus
+{
+	font-size: 10px !important;
+	float: right;
+	margin: 0 0 0 5px;
+}
+.controls a:hover,
+.paging a:hover,
+.file-browse-field a:hover,
+a.ui-button:hover {
+	background: #bbb url(/framework/themes/sea_biscuit/images/jquery-ui/ui-bg_inset-hard_100_bbbbbb_1x100.png) 50% 50% repeat-x;
+	text-decoration: none !important;
+	font-weight: normal !important;
+}
+.controls a:active,
+.paging a:active,
+.file-browse-field a:active,
+a.ui-button:active {
+	background: #fff;
+}
+a.delete-button:hover {
+	color: #8b0600;
+}
+.controls.admin a {
+	float: right;
+	margin: 0 0 0 5px;
+}
+
+#biscuit-admin-menu #biscuit-admin-menu-activator {
+	-moz-box-shadow: none;
+	-webkit-box-shadow: none;
+	box-shadow: none;
+	-moz-border-radius: 4px;
+	-webkit-border-radius: 4px;
+	border-radius: 4px;
+}

@@ -1,0 +1,15 @@
+<?php
+/**
+ * Register superfish JS for inclusion
+ *
+ * @package Libraries
+ * @subpackage Superfish
+ * @version $Id$
+ */
+class Superfish extends LibraryLoader {
+	protected static function register() {
+		Biscuit::instance()->Theme->register_js('footer', 'libraries/superfish/vendor/hoverIntent.js');
+		Biscuit::instance()->Theme->register_js('footer', 'libraries/superfish/vendor/jquery.bgiframe.min.js');
+		Biscuit::instance()->Theme->register_js('footer', 'libraries/superfish/vendor/superfish.js');
+	}
+}

@@ -1,1 +1,1 @@
-<p>Sorry, but your request is not valid and cannot be processed by our server.</p>
+<p>The form you submitted has expired and can no longer be processed. This is part of a security feature designed to prevent other sites from hacking your site while you are logged in. I apologize for the inconvenience.</p>

@@ -1,0 +1,13 @@
+<?php
+/**
+ * Register knockout js for inclusion
+ *
+ * @package Libraries
+ * @subpackage KnockoutJs
+ * @version $Id$
+ */
+class KnockoutJs extends LibraryLoader {
+	protected static function register() {
+		Biscuit::instance()->Theme->register_js('footer', 'libraries/knockout_js/vendor/knockout.js');
+	}
+}

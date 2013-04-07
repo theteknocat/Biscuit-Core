@@ -22,11 +22,18 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.1
+ * @version 2.1 $Id: bootstrap.php 14357 2011-10-28 22:23:04Z teknocat $
  */
 
 if (version_compare(PHP_VERSION,"5.2.0","<")) {
-	trigger_error("Biscuit 2.0 Requires PHP 5.2.0 or higher.", E_USER_ERROR);
+	die("Biscuit requires PHP 5.2.0 or higher.");
+}
+// Ensure compatibility with PHP 5.3 or less by making sure deprecated error number constants are defined:
+if (!defined('E_DEPRECATED')) {
+	define('E_DEPRECATED', 8192);
+}
+if (!defined('E_USER_DEPRECATED')) {
+	define('E_USER_DEPRECATED', 16384);
 }
 
 Bootstrap::set_start_time();
@@ -42,7 +49,7 @@ spl_autoload_register('Bootstrap::module_auto_load');
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.1
+ * @version 2.1 $Id: bootstrap.php 14357 2011-10-28 22:23:04Z teknocat $
  */
 class Bootstrap {
 	/**
@@ -86,12 +93,12 @@ class Bootstrap {
 	public static function core_lib_autoload($class_name) {
 		if (!class_exists('AkInflector',false)) {
 			// This one needs to be included manually if not found since this method needs it in order to find and include classes by naming convention.
-			require_once("lib/ak_inflector.php");
+			require_once("biscuit-core/ak_inflector.php");
 		}
 		if (strstr($class_name,"Exception")) {
-			$filepath = "lib/exceptions/".AkInflector::underscore($class_name).".php";
+			$filepath = "biscuit-core/exceptions/".AkInflector::underscore($class_name).".php";
 		} else {
-			$filepath = "lib/".AkInflector::underscore($class_name).".php";
+			$filepath = "biscuit-core/".AkInflector::underscore($class_name).".php";
 		}
 		$core_lib = dirname(__FILE__)."/".$filepath;
 		if (file_exists($core_lib)) {
@@ -108,7 +115,7 @@ class Bootstrap {
 	 */
 	public static function extension_auto_load($class_name) {
 		if (!class_exists('AkInflector',false)) {
-			require_once('lib/ak_inflector.php');
+			require_once('biscuit-core/ak_inflector.php');
 		}
 		$extension_path = AkInflector::underscore($class_name).'/extension.php';
 		if ($full_file_path = Crumbs::file_exists_in_load_path($extension_path)) {
@@ -125,16 +132,15 @@ class Bootstrap {
 	 */
 	public static function module_auto_load($class_name) {
 		if (!class_exists('AkInflector',false)) {
-			require_once('lib/ak_inflector.php');
+			require_once('biscuit-core/ak_inflector.php');
 		}
-		$module_classname = $class_name;
-		if (substr($module_classname,0,6) == 'Custom') {
-			$module_classname = substr($class_name,6);
-		}
-		if (substr($module_classname,-7) == 'Manager') {
-			$module_classname = substr($module_classname,0,-7);
-		}
+		$module_classname = Crumbs::normalized_module_name($class_name);
 		$module_path    = AkInflector::underscore($module_classname).'/controller.php';
+		if (substr($class_name,0,6) == 'Custom') {
+			// If the class name begins with "Custom", look explicitly for the custom controller. Otherwise, when the Crumbs::module_classname() method is called
+			// it can end up return a Custom classname when it's not actually customized, since that's the first class name it checks for
+			$module_path = 'customized/'.$module_path;
+		}
 		if ($full_file_path = Crumbs::file_exists_in_load_path($module_path)) {
 			if (preg_match('/\/customized\//',$full_file_path)) {
 				// If module controller file is a customized one, we need to load the parent controller, so figure out the parent file path and include it
@@ -233,17 +239,22 @@ class Bootstrap {
 
 		Console::log("    Set Locale");
 
-		if (!$Config->has_critical_errors()) {
-			I18n::instance()->set_locale();
+		if ($Config->has_critical_errors()) {
+			trigger_error("Problems with configuration are preventing Biscuit from loading:<br>".$Config->error_output('critical', ($level != self::COMMAND_LINE)),E_USER_ERROR);
+			return false;
 		}
 
-		if ($Config->has_critical_errors()) {
-			trigger_error("Problems with configuration are preventing Biscuit from loading:<br>".$Config->error_output('critical', true),E_USER_ERROR);
-		}
+		I18n::instance()->set_locale();
 
 		if ($Config->has_errors()) {
-			$message = "<p>Some problems with your configuration were detected:</p>".$Config->error_output('all', true);
-			Session::flash("user_error", $message);
+			$config_error_output = $Config->error_output('all', ($level != self::COMMAND_LINE));
+			if (!empty($config_error_output)) {
+				$message = "<p>Some problems with your configuration were detected:</p>".$config_error_output;
+				Session::flash("user_error", $message);
+			}
+			if (SERVER_TYPE == 'PRODUCTION') {
+				Console::log("Configuration problems exist:\n".$Config->error_output('all', false), Console::FORCE_LOG);
+			}
 		}
 
 		if ($level == self::FULL) {

@@ -1,0 +1,85 @@
+body {
+	font-family: "Lucida Grande", Arial, Helvetica, sans-serif;
+	font-size: 12px;
+	margin: 0 50px;
+	padding: 0;
+}
+h1, h2, h3, h4, h5, h6 {
+	color: #0F214A;
+}
+h1 {
+	font-size: 24px;
+}
+h2 {
+	font-size: 20px;
+}
+h3 {
+	font-size: 16px;
+}
+h4 {
+	font-size: 14px;
+}
+h5 {
+	font-size: 12px;
+	font-weight: bold;
+}
+p img {
+	float: none;
+	margin: 0;
+}
+img {
+	margin: 0;
+}
+table td, table th {
+	vertical-align: top;
+	padding: 5px;
+}
+p.none-found {
+	text-align: center;
+	font-size: 16px;
+	color: #777;
+}
+.clearance {
+	clear: both;
+	height: 0;
+	line-height: 0;
+	border: none;
+	margin: 0;
+	padding: 0;
+	font-size: 0;
+}
+.odd {
+	background: #eee;
+}
+.even {
+	background: #ddd;
+}
+ul li,
+ol li {
+	margin: 1em 0;
+}
+#biscuit-user-messages {
+	position: absolute;
+	z-index: 30;
+	width: 90%;
+	left: 5%;
+	top: 0;
+}
+#biscuit-user-messages a#user-messages-close,
+#biscuit-user-messages a#user-messages-close:visited,
+#biscuit-user-messages a#user-messages-close:active,
+#biscuit-user-messages a#user-messages-close:focus {
+	display: block;
+	position: absolute;
+	width: 15px;
+	height: 15px;
+	right: 7px;
+	top: 5px;
+	background: #c92c2c url(/framework/themes/bare_bones/images/x-button.png) left top no-repeat;
+	-moz-border-radius: 5px;
+	-webkit-border-radius: 5px;
+	border-radius: 5px;
+	border: 1px solid #9c1919;
+	text-indent: -3000em;
+	overflow: hidden;
+}

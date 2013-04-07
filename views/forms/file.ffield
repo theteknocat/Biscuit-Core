@@ -21,6 +21,7 @@ if (!empty($finfo)) {
 		}
 		?>
 	</span>
+	<span style="display: block" class="clearance"></span>
 	<?php
 }
 ?>

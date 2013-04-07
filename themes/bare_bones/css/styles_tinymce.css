@@ -1,0 +1,51 @@
+body {
+	font-family: "Lucida Grande", Arial, Helvetica, sans-serif;
+	font-size: 12px;
+	margin: 0;
+	padding: 0;
+}
+h1, h2, h3, h4, h5, h6 {
+	color: #0F214A;
+}
+h1 {
+	font-size: 24px;
+}
+h2 {
+	font-size: 20px;
+}
+h3 {
+	font-size: 16px;
+}
+h4 {
+	font-size: 14px;
+}
+h5 {
+	font-size: 12px;
+	font-weight: bold;
+}
+p img {
+	float: none;
+	margin: 0;
+}
+img {
+	margin: 0;
+}
+table td, table th {
+	vertical-align: top;
+	padding: 5px;
+}
+p.none-found {
+	text-align: center;
+	font-size: 16px;
+	color: #777;
+}
+.odd {
+	background: #eee;
+}
+.even {
+	background: #ddd;
+}
+ul li,
+ol li {
+	margin: 1em 0;
+}

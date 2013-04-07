@@ -15,12 +15,18 @@ if (!$required) {
 	?><input type="button" name="clear-date-field-<?php echo $id ?>" id="bttn-clear-field-<?php echo $id ?>" value="Clear"><?php
 }
 ?>
-<script type="text/javascript" charset="utf-8">
+<script type="text/javascript">
+	<?php
+	if (!Request::is_ajax()) {
+	?>
 	$(document).ready(function() {
+	<?php
+	}
+	?>
 		$('#attr_<?php echo $id ?>').datepicker({
 			defaultDate: '<?php echo $picker_default ?>',
 			dateFormat: 'dd-M-yy',
-			showAnim: 'blind',
+			showAnim: 'fade',
 			changeMonth: true,
 			changeYear: true
 		});
@@ -32,6 +38,10 @@ if (!$required) {
 		});
 			<?php
 		}
+	if (!Request::is_ajax()) {
 		?>
 	});
+	<?php
+	}
+	?>
 </script>

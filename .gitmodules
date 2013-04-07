@@ -19,3 +19,6 @@
 [submodule "modules/hit_counter"]
 	path = modules/hit_counter
 	url = git@github.com:theteknocat/Biscuit-HitCounter.git
+[submodule "modules/system_admin"]
+	path = modules/system_admin
+	url = git@github.com:theteknocat/Biscuit-SystemAdmin.git

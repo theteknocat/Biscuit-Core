@@ -1,10 +1,14 @@
 <?php
-require_once("lib/phpmailer/class.phpmailer.php");
+require_once("lib/vendor/phpmailer/class.phpmailer.php");
 /**
  * Wrapper for PHPMailer class that sends email using a template
  *
- * @package default
+ * @package Core
  * @author Peter Epp
+ * @author Lee O'Mara
+ * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
+ * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
+ * @version 2.0
  */
 class Mailer extends PHPMailer {
 	/**
@@ -16,7 +20,7 @@ class Mailer extends PHPMailer {
 	 * SMTP_USERNAME = username
 	 * SMTP_PASSWORD = xxxxxxxx
 	 *
-	 * @param string $template_name Template filename relative to either site or framework root
+	 * @param string $template Template filename relative to either site or framework root
 	 * @param string $mailer_options Array of options. Must at least contain a "To" element with an email address as it's value.
 	 *        Can optionally include "From" (from email address), "FromName", "ToName" and "Subject"
 	 * @param string $local_variables An array of variables you want to use in the template. This is optional in case you want to use this to send generic messages.
@@ -25,35 +29,26 @@ class Mailer extends PHPMailer {
 	 * @author Lee O'Mara
 	 * @author Peter Epp
 	 */
-	function send_mail($template_name, $mailer_options, $local_variables=array()) {
+	public function send_mail($template, $mailer_options, $local_variables=array()) {
 		Console::log("                        Mailer Initializing...");
-		$this->CharSet = 'UTF-8';
 		$this->smtp_settings();
 		$args = func_get_args();
 		if (!empty($mailer_options['From'])) {
 			$this->From		= $mailer_options['From'];     
 		}
-		else if (defined(OWNER_EMAIL)) {
+		else if (defined(OWNER_EMAIL) && OWNER_EMAIL != '') {
 			$this->From 	= OWNER_EMAIL;
 		}
 		else {
 			$this->From		= "noreply@".Request::host();
 		}
-		$this->Sender = OWNER_EMAIL;
 		if (!empty($mailer_options['FromName'])) {
 			$this->FromName	= $mailer_options['FromName'];
 		}
-		else if (defined("OWNER_FROM")) {
+		else if (defined("OWNER_FROM") && OWNER_FROM != '') {
 			$this->FromName	= OWNER_FROM;
 		}
-		if (!empty($mailer_options['ReplyTo'])) {
-			if (!empty($mailer_options['ReplyToName'])) {
-				$reply_to_name = $mailer_options['ReplyToName'];
-			} else {
-				$reply_to_name = '';
-			}
-			$this->AddReplyTo($mailer_options['ReplyTo'], $reply_to_name);
-		}
+		$this->Sender = OWNER_EMAIL;
 		if (!empty($mailer_options['Subject'])) {
 			$this->Subject	= $mailer_options['Subject'];
 		}
@@ -101,16 +96,15 @@ class Mailer extends PHPMailer {
 		// capture body from template
 		$use_html = (!empty($mailer_options["use_html"]) && $mailer_options["use_html"] === true);
 		if ($use_html) {
-			$this->Body = Crumbs::capture_include("views/email/".$template_name.".html_email.php",$local_variables);
-			$this->AltBody = Crumbs::capture_include("views/email/".$template_name.".email.php", $local_variables);
+			$this->Body = Crumbs::capture_include($template.".html_email.php",$local_variables);
+			$this->AltBody = Crumbs::capture_include($template.".email.php", $local_variables);
 			$this->IsHTML(true);
 		} else {
-			$this->Body = Crumbs::capture_include("views/email/".$template_name.".email.php", $local_variables);
+			$this->Body = Crumbs::capture_include($template.".email.php", $local_variables);
 		}
 		if (defined("EMAIL_WORDWRAP")) {
 			$this->WordWrap = EMAIL_WORDWRAP;
 		}
-		Console::log($this);
 		if (!$this->Send()) {
 			return 'Error sending mail: '.$this->ErrorInfo;
 		}
@@ -127,7 +121,7 @@ class Mailer extends PHPMailer {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function AddRecipients($type,$recipients,$recipient_names = null) {
+	protected function AddRecipients($type,$recipients,$recipient_names = null) {
 		if (is_array($recipients)) {
 			for ($i=0;$i < count($recipients);$i++) {
 				$toname = "";
@@ -154,11 +148,7 @@ class Mailer extends PHPMailer {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function AddRecipient($type,$email,$name) {
-		if (SERVER_TYPE != 'PRODUCTION') {
-			$this->AddAddress(TECH_EMAIL);
-			return;
-		}
+	protected function AddRecipient($type,$email,$name) {
 		switch($type) {
 			case "To":
 				$this->AddAddress($email,$name);
@@ -177,7 +167,7 @@ class Mailer extends PHPMailer {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function smtp_settings() {
+	protected function smtp_settings() {
 		if (defined("USE_SMTP_MAIL") && USE_SMTP_MAIL == true && defined("SMTP_HOST")) {
 			Console::log("                        Mailer is using SMTP: ".SMTP_HOST);
 			$this->IsSMTP();
@@ -189,14 +179,6 @@ class Mailer extends PHPMailer {
 				$this->Password = SMTP_PASSWORD;
 			}
 		}
-	}
-	// TODO Develope email functions for queuing mail and sending mail from a queue
-	function queue_mail($template_name, $mailer_options=array(), $local_variables=array()) {
-		// When I grow up, I want to push emails into a mail queue database table
-	}
-	function send_mail_from_queue($queue_id) {
-		// When I grow up, I want to read the next unsent mail from the database queue and send it off with the send_mail function.
-		// Then you'll be able to setup a cron job on a server that can call me up from a URL
 	}
 }
 ?>

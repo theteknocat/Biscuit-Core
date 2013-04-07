@@ -1,0 +1,5 @@
+RewriteEngine On
+
+RewriteCond %{REQUEST_URI} !(\.(jpg|jpeg|png|gif|css|js|ico))$
+RewriteCond %{REQUEST_URI} !views\/error500\.php$
+RewriteRule ^(.*)$ /index.php?page_slug=error404 [L]

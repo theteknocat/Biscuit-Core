@@ -4,35 +4,99 @@
  *
  * @package Core
  * @author Peter Epp
+ * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
+ * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
+ * @version 2.0
  */
-class Request {
+class Request implements Singleton {
+	/**
+	 * Place to store request variables (GET, POST, _FILES and SERVER)
+	 *
+	 * @var array
+	 */
+	private $_request_vars = array(
+		'_GET'    => array(),
+		'_POST'   => array(),
+		'_FILES'  => array(),
+		'_SERVER' => array()
+	);
+	/**
+	 * Cached request headers
+	 *
+	 * @var array
+	 */
+	private $_headers = array();
+	/**
+	 * Reference to instance of self
+	 *
+	 * @var self
+	 */
+	private static $_instance;
+	/**
+	 * Put all request vars into local array. Can stuff vars for testing by passing array to constructor
+	 *
+	 * @author Peter Epp
+	 */
+	private function __construct() {
+		if (!empty($_GET)) {
+			$this->_request_vars['_GET'] = $_GET;
+		}
+		if (!empty($_POST)) {
+			$this->_request_vars['_POST'] = $_POST;
+		}
+		if (!empty($_FILES)) {
+			$this->_request_vars['_FILES'] = $_FILES;
+		}
+		if (!empty($_SERVER)) {
+			$this->_request_vars['_SERVER'] = $_SERVER;
+		}
+	}
+	/**
+	 * Instantiate singleton of self
+	 *
+	 * @return self
+	 * @author Peter Epp
+	 */
+	public static function instance() {
+		if (empty(self::$_instance)) {
+			self::$_instance = new self();
+		}
+		return self::$_instance;
+	}
+	/**
+	 * Reset the request by destroying the instance of self so a new request can be instantiated on the next method call, primarily for testing purposes
+	 *
+	 * @return void
+	 * @author Peter Epp
+	 */
+	public static function reset() {
+		self::$_instance = null;
+	}
 	/**
 	 * Return all Apache request headers in an array
 	 *
 	 * @return array
 	 * @author Peter Epp
 	 */
-	function headers() {
-		if (function_exists("getallheaders")) {
-			// This only works on Apache with PECL extensions
-			return getallheaders();
+	public static function headers() {
+		$me = self::instance();
+		if(empty($me->_request_vars['_SERVER'])) {
+			trigger_error("NO \$_SERVER GLOBAL FOUND!", E_USER_ERROR);
+			return;
 		}
-		else if(!empty($_SERVER)) {
-			// Fallback to parsing request headers manually for non Linux/Apache/PECL configurations
-			$http_headers = array();
-			foreach($_SERVER as $key => $value) {
+		if (empty($me->_headers)) {
+			foreach($me->_request_vars['_SERVER'] as $key => $value) {
 				if (substr($key,0,5) == "HTTP_") {
-					$my_key = strtolower(substr($key,5));		// Grab everything after "HTTP_" in lowercase
-					$my_key = preg_replace("'_'","-",$my_key);		// Convert underscores to dashes
-					$http_headers[$my_key] = $value;		// Set it in the array
+					// Turn all-caps underscored variable key into hyphenized-camelized key:
+					$my_key = str_replace(" ","-",AKInflector::titleize(strtolower(substr($key,5))));
+					if (get_magic_quotes_gpc()) {
+						$value = stripslashes($value);
+					}
+					$me->_headers[$my_key] = $value;		// Set it in the array
 				}
 			}
-			return $http_headers;
 		}
-		else {
-			// We should never get here.  If we do there's something wrong with the server
-			die("No way to read request headers!!!. getallheaders() function is not available and the \$_SERVER array is empty!");
-		}
+		return $me->_headers;
 	}
 	/**
 	 * Return the value of a specific request header. Returns null if the header doesn't exist
@@ -41,8 +105,8 @@ class Request {
 	 * @return mixed
 	 * @author Peter Epp
 	 */
-	function header($key) {
-		$request_headers = Request::headers();
+	public static function header($key) {
+		$request_headers = self::headers();
 		foreach ($request_headers as $hkey => $value) {
 			if (strtolower($hkey) == strtolower($key)) {		// Do a case-insensitive search on the key because some browsers send custom headers with all lowercase keys (IE), where others send them with the keys in their original case
 				return $value;
@@ -56,7 +120,7 @@ class Request {
 	 * @return bool
 	 * @author Peter Epp
 	 */
-	function is_ping_keepalive() {
+	public static function is_ping_keepalive() {
 		return (Request::is_ajax() && Request::type() == 'ping');
 	}
 	/**
@@ -65,16 +129,17 @@ class Request {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function query_string($index = false) {
+	public static function query_string($index = false) {
+		$me = self::instance();
 		if ($index !== false) {
-			if (isset($_GET[$index])) {
-				return $_GET[$index];
+			if (isset($me->_request_vars['_GET'][$index])) {
+				return $me->_request_vars['_GET'][$index];
 			}
 			return null;
 		}
 		else {
-			if (!empty($_GET)) {
-				return $_GET;
+			if (!empty($me->_request_vars['_GET'])) {
+				return $me->_request_vars['_GET'];
 			}
 			return null;
 		}
@@ -86,16 +151,17 @@ class Request {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function form($index = false) {
+	public static function form($index = false) {
+		$me = self::instance();
 		if ($index !== false) {
-			if (isset($_POST[$index])) {
-				return $_POST[$index];
+			if (isset($me->_request_vars['_POST'][$index])) {
+				return $me->_request_vars['_POST'][$index];
 			}
 			return null;
 		}
 		else {
-			if (!empty($_POST)) {
-				return $_POST;
+			if (!empty($me->_request_vars['_POST'])) {
+				return $me->_request_vars['_POST'];
 			}
 			return null;
 		}
@@ -108,8 +174,9 @@ class Request {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function set_form($key,$value) {
-		$_POST[$key] = $value;
+	public static function set_form($key,$value) {
+		$me = self::instance();
+		$me->_request_vars['_POST'][$key] = $value;
 	}
 	/**
 	 * Set the value of a query string variable
@@ -119,8 +186,9 @@ class Request {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function set_query($key,$value) {
-		$_GET[$key] = $value;
+	public static function set_query($key,$value) {
+		$me = self::instance();
+		$me->_request_vars['_GET'][$key] = $value;
 	}
 	/**
 	 * Unset all or specified $_GET variables
@@ -129,19 +197,20 @@ class Request {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function clear_query($keys = null) {
+	public static function clear_query($keys = null) {
+		$me = self::instance();
 		if ($keys === null) {
-			foreach ($_GET as $key => $value) {
-				unset($_GET[$key]);
+			foreach ($me->_request_vars['_GET'] as $key => $value) {
+				unset($me->_request_vars['_GET'][$key]);
 			}
 		}
 		else if (is_array($keys)) {
 			foreach ($keys as $key) {
-				unset($_GET[$key]);
+				unset($me->_request_vars['_GET'][$key]);
 			}
 		}
 		else if (is_string($keys)) {
-			unset($_GET[$keys]);
+			unset($me->_request_vars['_GET'][$keys]);
 		}
 		else {
 			return false;
@@ -154,19 +223,20 @@ class Request {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function clear_form($keys = null) {
+	public static function clear_form($keys = null) {
+		$me = self::instance();
 		if ($keys === null) {
-			foreach ($_POST as $key => $value) {
-				unset($_POST[$key]);
+			foreach ($me->_request_vars['_POST'] as $key => $value) {
+				unset($me->_request_vars['_POST'][$key]);
 			}
 		}
 		else if (is_array($keys)) {
 			foreach ($keys as $key) {
-				unset($_POST[$key]);
+				unset($me->_request_vars['_POST'][$key]);
 			}
 		}
 		else if (is_string($keys)) {
-			unset($_POST[$keys]);
+			unset($me->_request_vars['_POST'][$keys]);
 		}
 		else {
 			return false;
@@ -179,12 +249,13 @@ class Request {
 	 * @return mixed
 	 * @author Peter Epp
 	 */
-	function files($key = null) {
+	public static function files($key = null) {
+		$me = self::instance();
 		if ($key === null) {
-			return $_FILES;
+			return $me->_request_vars['_FILES'];
 		}
-		else if (!empty($_FILES[$key])) {
-			return $_FILES[$key];
+		else if (!empty($me->_request_vars['_FILES'][$key])) {
+			return $me->_request_vars['_FILES'][$key];
 		}
 		return null;
 	}
@@ -194,8 +265,9 @@ class Request {
 	 * @return bool
 	 * @author Peter Epp
 	 */
-	function has_query_string() {
-		return (!empty($_GET) && count($_GET) > 0);
+	public static function has_query_string() {
+		$me = self::instance();
+		return (!empty($me->_request_vars['_GET']) && count($me->_request_vars['_GET']) > 0);
 	}
 	/**
 	 * Is there any data posted from a form?
@@ -203,8 +275,9 @@ class Request {
 	 * @return bool
 	 * @author Peter Epp
 	 */
-	function has_form_data() {
-		return (!empty($_POST) && count($_POST) > 0);
+	public static function has_form_data() {
+		$me = self::instance();
+		return (!empty($me->_request_vars['_POST']) && count($me->_request_vars['_POST']) > 0);
 	}
 	/**
 	 * Return the request type. Request types in Biscuit are primarily for determining whether or not it should render output. The two types that it checks when asked
@@ -219,7 +292,7 @@ class Request {
 	 * @return bool
 	 * @author Peter Epp
 	 */
-	function type() {
+	public static function type() {
 		return (Request::header('X-Biscuit-Request-Type') != null ? Request::header('X-Biscuit-Request-Type') : 'standard');
 	}
 	/**
@@ -228,16 +301,17 @@ class Request {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function method() {
-		return $_SERVER['REQUEST_METHOD'];
+	public static function method() {
+		$me = self::instance();
+		return $me->_request_vars['_SERVER']['REQUEST_METHOD'];
 	}
 	/**
 	 * Is the current request over POST?
 	 *
 	 * @return bool
 	 **/
-	function is_post() {
-		return Request::method() == 'POST';
+	public static function is_post() {
+		return strtolower(Request::method()) == 'post';
 	}
 	/**
 	 * Is the current request over ajax?
@@ -245,7 +319,7 @@ class Request {
 	 * @return bool
 	 * @author Peter Epp
 	 */
-	function is_ajax() {
+	public static function is_ajax() {
 		return (Request::header('X-Biscuit-Ajax-Request') === 'true');
 	}
 	/**
@@ -254,8 +328,9 @@ class Request {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function uri() {
-		return $_SERVER['REQUEST_URI'];
+	public static function uri() {
+		$me = self::instance();
+		return $me->_request_vars['_SERVER']['REQUEST_URI'];
 	}
 	/**
 	 * Return the HTTP referrer, if available
@@ -263,9 +338,10 @@ class Request {
 	 * @return mixed Referrer value if not empty or null
 	 * @author Peter Epp
 	 */
-	function referer() {
-		if (!empty($_SERVER['HTTP_REFERER'])) {
-			return $_SERVER['HTTP_REFERER'];
+	public static function referer() {
+		$me = self::instance();
+		if (!empty($me->_request_vars['_SERVER']['HTTP_REFERER'])) {
+			return $me->_request_vars['_SERVER']['HTTP_REFERER'];
 		}
 		return null;
 	}
@@ -276,8 +352,9 @@ class Request {
 	 * @author Peter Epp
 	 */
 	
-	function port() {
-		return $_SERVER['SERVER_PORT'];
+	public static function port() {
+		$me = self::instance();
+		return $me->_request_vars['_SERVER']['SERVER_PORT'];
 	}
 	/**
 	 * Return host name
@@ -285,8 +362,26 @@ class Request {
 	 * @return string Host name
 	 * @author Peter Epp
 	 */
-	function host() {
-		return Request::server('HOST');
+	public static function host() {
+		return Request::header('Host');
+	}
+	/**
+	 * Return the value of the "If-Modified-Since" request header, or null if not present
+	 *
+	 * @return mixed
+	 * @author Peter Epp
+	 */
+	public static function if_modified_since() {
+		return Request::header("If-Modified-Since");
+	}
+	/**
+	 * Return the value of the "If-None-Match" request header, or null if not present
+	 *
+	 * @return mixed
+	 * @author Peter Epp
+	 */
+	public static function if_none_match() {
+		return Request::header('If-None-Match');
 	}
 	/**
 	 * Whether or not the request is a post from a form to an iframe for an ajax-like result
@@ -294,7 +389,7 @@ class Request {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function is_ajaxy_iframe_post() {
+	public static function is_ajaxy_iframe_post() {
 		return (Request::is_post() && Request::form('success_callback') !== null);
 	}
 	/**
@@ -304,24 +399,79 @@ class Request {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function server($key) {
-		if (!empty($_SERVER[$key])) {
-			return $_SERVER[$key];
+	public static function server($key) {
+		$me = self::instance();
+		if (!empty($me->_request_vars['_SERVER'][$key])) {
+			return $me->_request_vars['_SERVER'][$key];
 		}
 		return null;
 	}
 	/**
-	 * Fetch the value of a cookie
+	 * Stuff the GET array with values
 	 *
-	 * @param string $key 
-	 * @return mixed
+	 * @param array $vars 
+	 * @return void
 	 * @author Peter Epp
 	 */
-	function cookie($key) {
-		if (isset($_COOKIE[$key])) {
-			return $_COOKIE[$key];
+	public static function stuff_get($vars) {
+		self::stuff(array('_GET' => $vars));
+	}
+	/**
+	 * Stuff the POST array with values
+	 *
+	 * @param array $vars 
+	 * @return void
+	 * @author Peter Epp
+	 */
+	public static function stuff_post($vars) {
+		self::stuff(array('_POST' => $vars));
+	}
+	/**
+	 * Stuff a specific request header with a value
+	 *
+	 * @param string $name 
+	 * @param string $value 
+	 * @return void
+	 * @author Peter Epp
+	 */
+	public static function stuff_header($name,$value) {
+		$me = self::instance();
+		$var_name = 'HTTP_'.str_replace('-','_',strtoupper($name));
+		// Stuff it into the SERVER vars in case headers haven't been called for yet:
+		$me->_request_vars['_SERVER'][$var_name] = $value;
+		// Also stuff directly into the headers property in case headers method has been called once, which means the headers won't be re-populated
+		// from the server vars when called for:
+		$me->_headers[$name] = $value;
+	}
+	/**
+	 * Stuff the request URI with a specified value
+	 *
+	 * @param string $uri 
+	 * @return void
+	 * @author Peter Epp
+	 */
+	public static function stuff_uri($uri) {
+		$me = self::instance();
+		$me->_request_vars['_SERVER']['REQUEST_URI'] = $uri;
+	}
+	/**
+	 * Stuff the request with any desired variables (_GET, _POST or _SERVER)
+	 *
+	 * @param array $vars 
+	 * @return void
+	 * @author Peter Epp
+	 */
+	public static function stuff($vars) {
+		$me = self::instance();
+		if (!empty($vars)) {
+			foreach ($vars as $key => $values) {
+				if ($key == '_GET' || $key == '_POST') {
+					foreach ($values as $sub_key => $value) {
+						$me->_request_vars[$key][$sub_key] = $value;
+					}
+				}
+			}
 		}
-		return null;
 	}
 }
 ?>

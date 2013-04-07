@@ -1,0 +1,4 @@
+/* Override blueprint CSS default that centers body content */
+body {
+	text-align: left;
+}

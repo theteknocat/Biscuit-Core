@@ -1,0 +1,8 @@
+<?php
+$style = '';
+if (!empty($width)) {
+	$style = ' style="width:'.$width.'px"';
+}
+?>
+<label for="attr_<?php echo $id ?>"<?php if (!$is_valid) { ?> class="error"<?php } ?>><?php if ($required) { echo '*'; } echo $label ?></label>
+<input type="text" class="text<?php if (!$is_valid) { ?> error<?php } ?>" name="<?php echo $name ?>" id="attr_<?php echo $id ?>"<?php if (!empty($size)) { echo ' size="'.$size.'"'; } echo $style; ?> value="<?php echo htmlentities($default_value) ?>"<?php if (!empty($maxlength)) { echo ' maxlength="'.$maxlength.'"'; } if (!empty($autocomplete)) { echo ' autocomplete="'.$autocomplete.'"'; } ?>>

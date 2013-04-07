@@ -4,9 +4,8 @@
  * This is the default configuration file.  It contains all of the global constants needed by the framework.  To create a configuration file for your site,
  * follow these steps:
  *
- * 1) Create a folder in the root of your site called "config"
- * 2) In the config folder, create a sub-folder with the host name of the server it will run from.  Do not include the "www"
- * 3) Copy this file into the host folder and modify it as needed
+ * 1) In your site's config folder, create a sub-folder with the host name of the server it will run from.  Do not include the "www"
+ * 2) Copy this file into the host folder and modify it as needed
  */
 
 /*------- REQUIRED constants: -------*/
@@ -36,8 +35,9 @@ define('DBNAME', "db_name_here");
  * What level of logging to use.  This affects both the level of PHP error reporting and which console messages get logged.
  *
  * 1 - Only PHP errors of type E_ERROR and framework error messages
- * 2 - All log messages reporting framework operation, framework errors, and all PHP errors except for E_WARNING
- * 3 - All log messages reporting framework operation, framework errors, and all PHP errors
+ * 2 - All log messages reporting framework operation, framework errors and PHP errors except for E_WARNING and E_NOTICE
+ * 3 - All log messages reporting framework operation, framework errors and PHP errors except for E_NOTICE
+ * 4 - All log messages reporting framework operation, framework errors and all PHP errors including E_NOTICE
  */
 define('LOGGING_LEVEL',3);
 
@@ -65,38 +65,8 @@ define('SERVER_TYPE','LOCAL_DEV');
  */
 define('SSL_DISABLED',false);
 
-/**
- * Prefix for the session cookie name to make it unique to your site
- */
-define('SESSION_NAME','Biscuit');
-
 /*------- Optional constants: -------*/
 // Any of these constants can be left out. The documentation for each one details the default behaviour when they are not defined.
-
-/**
- * Whether or not you want to include the PEAR library. If not defined it defaults to false.
- */
-define("INCLUDE_PEAR",false);
-
-/**
- * Store sessions in database?  If this constant is not defined it defaults to false.
- */
-define('USE_DB_SESSIONS',false);
-
-/**
- * Wether or not to use persistent database connection
- */
-define("USE_PERSISTENT_DB",false);
-
-/**
- * Add version number to JS and CSS includes. If you don't want to use version numbers remove this constant.
- */
-define('JS_AND_CSS_VERSION',1);
-
-/**
- * Email address for the web developer.  This will be used to send detailed error reports.  If this constant is not defined, error reports will not be sent.
- */
-define("TECH_EMAIL","yourname@yourdomain.com");
 
 /**
  * Use SMTP for sending mail?  If not defined, it will try to use sendmail instead

@@ -4,8 +4,14 @@
  *
  * @package Core
  * @author Peter Epp
+ * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
+ * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
+ * @version 2.0
  */
 class Recursive {
+	private function __construct() {
+		// Prevent instantiation
+	}
 	/**
 	 * PHP sort() recursively
 	 *
@@ -13,7 +19,7 @@ class Recursive {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function sort(&$array) {
+	public static function sort(&$array) {
 		sort($array);
 		foreach ($array as $k => $v) {
 			if (is_array($v)) {
@@ -28,7 +34,7 @@ class Recursive {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function rsort(&$array) {
+	public static function rsort(&$array) {
 		rsort($array);
 		foreach ($array as $k => $v) {
 			if (is_array($v)) {
@@ -43,7 +49,7 @@ class Recursive {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function asort(&$array) {
+	public static function asort(&$array) {
 		asort($array);
 		foreach ($array as $k => $v) {
 			if (is_array($v)) {
@@ -58,7 +64,7 @@ class Recursive {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function arsort(&$array) {
+	public static function arsort(&$array) {
 		arsort($array);
 		foreach ($array as $k => $v) {
 			if (is_array($v)) {
@@ -73,7 +79,7 @@ class Recursive {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function ksort(&$array) {
+	public static function ksort(&$array) {
 		ksort($array);
 		foreach ($array as $k => $v) {
 			if (is_array($v)) {
@@ -88,7 +94,7 @@ class Recursive {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function krsort(&$array) {
+	public static function krsort(&$array) {
 		krsort($array);
 		foreach ($array as $k => $v) {
 			if (is_array($v)) {
@@ -103,7 +109,7 @@ class Recursive {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function natsort(&$array) {
+	public static function natsort(&$array) {
 		natsort($array);
 		foreach ($array as $k => $v) {
 			if (is_array($v)) {
@@ -118,7 +124,7 @@ class Recursive {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function natcasesort(&$array) {
+	public static function natcasesort(&$array) {
 		natcasesort($array);
 		foreach ($array as $k => $v) {
 			if (is_array($v)) {
@@ -133,7 +139,7 @@ class Recursive {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function uasort(&$array) {
+	public static function uasort(&$array) {
 		uasort($array);
 		foreach ($array as $k => $v) {
 			if (is_array($v)) {
@@ -148,7 +154,7 @@ class Recursive {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function uksort(&$array) {
+	public static function uksort(&$array) {
 		uksort($array);
 		foreach ($array as $k => $v) {
 			if (is_array($v)) {
@@ -163,7 +169,7 @@ class Recursive {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function usort(&$array) {
+	public static function usort(&$array) {
 		ksort($array);
 		foreach ($array as $k => $v) {
 			if (is_array($v)) {
@@ -180,7 +186,7 @@ class Recursive {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function rmdir($directory, $empty=false) {
+	public static function rmdir($directory, $empty=false) {
 		// List of directories that cannot be deleted:
 		$skip_list = array('',SITE_ROOT,FW_ROOT,SITE_ROOT."/css",FW_ROOT."/css",SITE_ROOT."/images",FW_ROOT."/images",SITE_ROOT."/plugins",FW_ROOT."/plugins",SITE_ROOT."/scripts",FW_ROOT."/scripts",SITE_ROOT."/templates",FW_ROOT."/templates",SITE_ROOT."/views",FW_ROOT."/views",FW_ROOT."/lib",FW_ROOT."/core.php",FW_ROOT."/index.php");
 		if (!in_array($directory,$skip_list)) {
@@ -222,7 +228,7 @@ class Recursive {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function array_map($callback,$array) {
+	public static function array_map($callback,$array) {
 		$arguments = func_get_args();
 		array_shift($arguments);
 		array_shift($arguments);

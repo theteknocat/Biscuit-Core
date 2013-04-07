@@ -1,0 +1,13 @@
+<label<?php if (!$is_valid) { ?> class="error"<?php } ?>><?php if ($required) { echo '*'; } echo $label ?></label>
+<span id="attr_<?php echo $id ?>" class="field-container">
+<?php
+$last = end($data_set);
+reset($data_set);
+foreach ($data_set as $index => $item) {
+	?>
+<input type="radio" class="radio-button" name="<?php echo $name ?>" id="attr_<?php echo $id.$index ?>" value="<?php echo $item['value'] ?>"<?php if ($item['value'] == $default_value) { echo ' checked="checked"'; } ?>><label for="attr_<?php echo $id.$index ?>" class="radio-button-label"><?php echo $item['label'] ?></label>
+	<?php
+}
+?>
+</span>
+<span style="clear:both;display:block;height:0"></span>

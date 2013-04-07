@@ -1,31 +1,52 @@
 <?php
 /**
- * Set of static methods for connecting to a MySQL database and performing various queries
+ * Wrapper for the PDO library providing a set of static methods for handling database operations
  *
  * @package Core
  * @author Peter Epp
+ * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
+ * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
+ * @version 2.0
  **/
 class DB {
 	/**
-	 * Open database connection
+	 * Reference to the PDO object
+	 *
+	 * @author Peter Epp
+	 */
+	private static $_pdo = null;
+	/**
+	 * The number of rows returned by the last SELECT query
+	 *
+	 * @author Peter Epp
+	 */
+	private static $_last_num_rows_returned = null;
+	/**
+	 * The number of rows affected by the last INSERT, UPDATE or DELETE query
+	 *
+	 * @author Peter Epp
+	 */
+	private static $_last_num_affected_rows = null;
+	/**
+	 * Prevent instantiation
+	 *
+	 * @author Peter Epp
+	 */
+	private function __construct() {
+		// Prevent instantiation
+	}
+	/**
+	 * Open database connection and return a PDO object on success
 	 *
 	 * @return void
 	 * @author Peter Epp
 	 **/
-	function connect() {
-		if (USE_PERSISTENT_DB) {
-			$db_link = @mysql_pconnect(DBHOST, DBUSER, DBPASS);
-		}
-		else {
-			$db_link = @mysql_connect(DBHOST, DBUSER, DBPASS);
-		}
-		if (!$db_link) {
-			trigger_error("Cannot connect to MySQL database:<br><br>".DB::error(),E_USER_ERROR);
-		}
-		else {
-			if (!@mysql_select_db(DBNAME, $db_link)) {
-				trigger_error("Cannot select database:<br><br>".DB::error(),E_USER_ERROR);
-			}
+	public static function connect() {
+	    $dsn = "mysql:dbname=".DBNAME.";host=".DBHOST;
+		try {
+			self::$_pdo = new PDO($dsn, DBUSER, DBPASS);
+		} catch (PDOException $e) {
+			trigger_error("Database connection failed: ".$e->getMessage(), E_USER_ERROR);
 		}
 	}
 	/**
@@ -34,8 +55,8 @@ class DB {
 	 * @return void
 	 * @author Peter Epp
 	 **/
-	function disconnect() {
-		@mysql_close();
+	public static function close() {
+		self::$_pdo = null;
 	}
 	/**
 	 * Similar to the query() static function, but intended specifically for selecting multiple rows from a table
@@ -44,36 +65,9 @@ class DB {
 	 * @author Peter Epp
 	 * @param string $query SELECT query string to run
 	 **/
-	function fetch($query) {
-		$result = mysql_query($query);
-		if (!DB::error() && DB::num_rows($result) > 0) {
-			for ($i=0;$i < DB::num_rows($result);$i++) {
-				$row = DB::row($result);
-				if (count($row) > 1) {
-					$return[$i] = $row;
-				}
-				else {
-					$return[$i] = reset($row);
-				}
-			}
-			DB::free($result);
-			return $return;
-		}
-		else if (DB::error()) {
-			trigger_error("Failed to fetch data from database:<br><br>".DB::error()."<br>Original query:<br>".$query,E_USER_ERROR);
-		}
-		return false;
-	}
-	/**
-	 * Call fetch using prepared statement
-	 *
-	 * @param string $statement 
-	 * @param string $values 
-	 * @return void
-	 * @author Peter Epp
-	 */
-	function pfetch($statement,$values) {
-		return DB::fetch(DB::prepare_statement($statement,$values));
+	public static function fetch($query, $params = array()) {
+		$stmt = self::query($query, $params);
+		return self::rows($stmt);
 	}
 	/**
 	 * Fetch one row of a table by the value of any column. Result is strictly limited to one row.
@@ -82,33 +76,9 @@ class DB {
 	 * @author Peter Epp
 	 * @param string $query
 	 **/
-	function fetch_one($query) {
-		$result = mysql_query($query);
-		if (!DB::error() && DB::num_rows($result) > 0) {
-			$row = DB::row($result);
-			DB::free($result);
-			if (count($row) > 1) {
-				return $row;
-			}
-			else {
-				return reset($row);
-			}
-		}
-		else if (DB::error()) {
-			trigger_error("Failed to fetch data from database:<br><br>".DB::error()."<br>Original query:<br>".$query,E_USER_ERROR);
-		}
-		return false;
-	}
-	/**
-	 * Call fetch one using prepared statement
-	 *
-	 * @param string $statement 
-	 * @param string $values 
-	 * @return void
-	 * @author Peter Epp
-	 */
-	function pfetch_one($statement,$values) {
-		return DB::fetch_one(DB::prepare_statement($statement,$values));
+	public static function fetch_one($query, $params = array()) {
+		$stmt = self::query($query, $params);
+		return self::row($stmt);
 	}
 	/**
 	 * Run an insert query and return the new insert ID.  Only works with INSERT queries (duh).
@@ -117,24 +87,9 @@ class DB {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function insert($query) {
-		mysql_query($query);
-		if (DB::error()) {
-			trigger_error("Failed to insert data into database:<br><br>".DB::error()."<br>Original query:<br>".$query,E_USER_ERROR);
-			return false;
-		}
-		return @mysql_insert_id();
-	}
-	/**
-	 * Call insert one using prepared statement
-	 *
-	 * @param string $statement 
-	 * @param string $values 
-	 * @return void
-	 * @author Peter Epp
-	 */
-	function pinsert($statement,$values) {
-		return DB::insert(DB::prepare_statement($statement,$values));
+	public static function insert($query, $params = array()) {
+		self::query($query, $params);
+		return (int)self::$_pdo->lastInsertId();
 	}
 	/**
 	 * Run any DB query, dying on error
@@ -143,122 +98,97 @@ class DB {
 	 * @author Peter Epp
 	 * @param string $query MySQL query
 	 **/
-	function query($query) {
-		$result = mysql_query($query);
-		if (DB::error()) {
-			trigger_error("Failed to perform database query:<br><br>".DB::error()."<br>Original query:<br>".$query,E_USER_ERROR);
+	public static function query($query, $params = array()) {
+		self::log_query($query);
+		self::$_last_num_rows_returned = null;
+		$stmt = self::$_pdo->prepare($query);
+		$result = $stmt->execute((array)$params);
+		self::$_last_num_affected_rows = $stmt->rowCount();
+		if ($result === false) {
+			$error_info = $stmt->errorInfo();
+			trigger_error('Database Query ('.$query.') failed: '.$error_info[2], E_USER_ERROR);
 		}
-		return true;
+		return $stmt;
 	}
 	/**
-	 * Call query one using prepared statement
-	 *
-	 * @param string $statement 
-	 * @param string $values 
-	 * @return void
-	 * @author Peter Epp
-	 */
-	function pquery($statement,$values) {
-		return DB::query(DB::prepare_statement($statement,$values));
-	}
-	/**
-	 * Basic statement prepare method
-	 *
-	 * @param string $statement 
-	 * @param string $values 
-	 * @return void
-	 * @author Peter Epp
-	 */
-	function prepare_statement($statement,$values) {
-		$clean_values = DB::sanitize($values);
-		$statement = trim(rtrim($statement));
-		$statement_bits = explode("?",$statement);
-		$query = "";
-		foreach ($values as $index => $value) {
-			$query .= $statement_bits[$index]."'".$value."'";
-		}
-		if (count($statement_bits > count($values))) {
-			$query .= end($statement_bits);
-		}
-		return $query;
-	}
-	/**
-	 * Take an associative array of data for DB insertion, sanitize it, and build it into a comma-separated string of `column` = 'data' for use in an UPDATE or INSERT query
+	 * Take an associative array of data for DB insertion and build it into a comma-separated string of `column` = ':column' for use in a PDO UPDATE or INSERT query
 	 *
 	 * @return string Portion of a DB query string that follows "SET" in the format "`column1_name` = 'column1_data', `column2_name` = 'column2_data'" etc
 	 * @author Peter Epp
 	 * @param array $data Associative array of data for DB insertion. Array keys must match the column names, and the primary key column should not be included
 	 **/
-	function safe_query_from_data($data) {
-		// Sanitize data for DB insertion:
-		$data = DB::sanitize($data);
-		// Build string of "`column_name` = 'data'"
-		$query = "";
-		$i = 0;
-		foreach($data as $k => $v) {
-			if (strtolower($v) !== 'null') {
-				$val = "'".$v."'";
+	public static function query_from_data($data) {
+		$pdo_data = self::pdo_assoc_array($data);
+		$query_array = array();
+		foreach($pdo_data as $k => $v) {
+			$column_name = substr($k,1);	// Everything after the colon.
+			$query_array[] = "`".$column_name."` = ".$k;
+		}
+		return implode(", ",$query_array);
+	}
+	/**
+	 * Put a colon at beginning of all the key names in an associative array so it can then be passed to a query method.
+	 *
+	 * @param array $array An associative array of data
+	 * @return array The array with the key names transformed to include a colon at the beginning
+	 * @author Peter Epp
+	 */
+	public static function pdo_assoc_array($array) {
+		$new_array = array();
+		if (!empty($array)) {
+			foreach ($array as $k => $v) {
+				$db_key = $k;
+				if (substr($db_key,0,1) != ":") {
+					$db_key = ":".$db_key;
+				}
+				$new_array[$db_key] = $v;
+			}
+		}
+		return $new_array;
+	}
+	/**
+	 * Return one row from a resultset
+	 *
+	 * @param mixed $stmt Statement object, or false if the query was empty
+	 * @return mixed
+	 * @author Peter Epp
+	 */
+	public static function row(&$stmt) {
+		if (is_object($stmt) && $stmt->rowCount() > 0) {
+			if ($stmt->columnCount() > 1) {
+				$result = $stmt->fetch(PDO::FETCH_ASSOC);
 			}
 			else {
-				$val = $v;
+				$result = $stmt->fetch(PDO::FETCH_NUM);
+				$result = reset($result);
 			}
-			$query .= "`".$k."` = ".$val."".(($i < count($data)-1) ? ", " : "");
-			$i += 1;
+			self::$_last_num_rows_returned = count($result);
+			return $result;
 		}
-		return $query;
+		return false;
 	}
 	/**
-	 * Recursively iterate through an associative array and sanitize the values for DB insertion using mysql_real_escape_string().
+	 * Array of rows from a resultset.
 	 *
-	 * @return array The sanitized array of data
+	 * @param mixed $stmt Statement object, or false if the query was empty
+	 * @return array
 	 * @author Peter Epp
-	 * @param array $array The associative array of data to be sanitized
-	 **/
-	function sanitize($array) {
-		// Recursively santitize all data in an array for MySql insertion
-		foreach($array as $k => $v) {
-			if (is_array($v)) {
-				$array[$k] = DB::sanitize($v);
+	 */
+	public static function rows(&$stmt) {
+		if (is_object($stmt) && $stmt->rowCount() > 0) {
+			if ($stmt->columnCount() > 1) {
+				$result = $stmt->fetchAll(PDO::FETCH_ASSOC);
 			}
 			else {
-				$array[$k] = DB::escape($v);
+				$result = $stmt->fetchAll(PDO::FETCH_NUM);
+				foreach ($result as $index => $value) {
+					$result[$index] = reset($value);
+				}
 			}
+			self::$_last_num_rows_returned = count($result);
+			return $result;
 		}
-		return $array;
-	}
-	/**
-	 * Escape a value for database insertion
-	 *
-	 * @param string $value 
-	 * @return void
-	 * @author Peter Epp
-	 */
-	
-	function escape($value) {
-		if (get_magic_quotes_gpc()) {
-			$value = stripslashes($value);
-		}
-		return mysql_real_escape_string($value);
-	}
-	/**
-	 * Return one row from a resultset as an associative array
-	 *
-	 * @param mixed $result Resultset
-	 * @return void
-	 * @author Peter Epp
-	 */
-	function row(&$result) {
-		return mysql_fetch_assoc($result);
-	}
-	/**
-	 * Return the number of rows in a resultset
-	 *
-	 * @param mixed $result Resultset
-	 * @return void
-	 * @author Peter Epp
-	 */
-	function num_rows(&$result) {
-		return @mysql_num_rows($result);
+		return false;
 	}
 	/**
 	 * Return the number of rows affected by a query
@@ -266,8 +196,17 @@ class DB {
 	 * @return int Number of affected rows
 	 * @author Peter Epp
 	 */
-	function affected_rows() {
-		return @mysql_affected_rows();
+	public static function affected_rows() {
+		return self::$_last_num_affected_rows;
+	}
+	/**
+	 * Return the number of rows returned by the last SELECT query
+	 *
+	 * @return mixed Integer or null
+	 * @author Peter Epp
+	 */
+	public static function num_rows() {
+		return self::$_last_num_rows_returned;
 	}
 	/**
 	 * Find out if a database table exists
@@ -276,8 +215,8 @@ class DB {
 	 * @return bool
 	 * @author Peter Epp
 	 */
-	function table_exists($table_name) {
-		$db_table = DB::fetch_one("SHOW TABLES LIKE '".$table_name."'");
+	public static function table_exists($table_name) {
+		$db_table = self::fetch_one("SHOW TABLES LIKE '{$table_name}'");
 		return ($db_table == $table_name);
 	}
 	/**
@@ -288,9 +227,8 @@ class DB {
 	 * @return bool
 	 * @author Peter Epp
 	 */
-	function column_exists_in_table($column_name,$table_name) {
-		$query = "SHOW COLUMNS FROM `".DB::escape($table_name)."` LIKE '".DB::escape($column_name)."'";
-		$column = DB::fetch_one($query);
+	public static function column_exists_in_table($column_name,$table_name) {
+		$column = self::fetch_one("SHOW COLUMNS FROM `{$table_name}` WHERE `Field` = '{$column_name}'");
 		return (!empty($column));
 	}
 	/**
@@ -299,8 +237,8 @@ class DB {
 	 * @return float MySQL version number
 	 * @author Peter Epp
 	 */
-	function version() {
-		$my_version = DB::fetch_one('SELECT VERSION() AS `mysql_version`');
+	public static function version() {
+		$my_version = self::fetch_one('SELECT VERSION() AS `mysql_version`');
 		$version_info = explode('.',$my_version);
 		$major_ver = $version_info[0];
 		$minor_ver = $version_info[1];
@@ -309,23 +247,24 @@ class DB {
 		return $num_version;
 	}
 	/**
-	 * Return mysql error message
+	 * Add a query along with info about the method that called it to the list of queries to log
 	 *
-	 * @return string
-	 * @author Peter Epp
-	 */
-	function error() {
-		return mysql_error();
-	}
-	/**
-	 * Free a resultset
-	 *
-	 * @param mixed $result Resultset
+	 * @param string $query 
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function free(&$result) {
-		@mysql_free_result($result);
+	private static function log_query($query) {
+		$backtrace = debug_backtrace();
+		$db_method = AkInflector::humanize($backtrace[2]['function']);
+		$called_by = $backtrace[3]['class'].$backtrace[3]['type'].$backtrace[3]['function'];
+		// Tidy up the query:
+		$query = preg_replace("/[\n\r]/","\t",$query);	// Replace line breaks with tabs
+		$query = preg_replace("/\t+/"," ",$query);	// Replace tabs with spaces
+		$query = preg_replace("/\s\s+/"," ",$query);	// Replace 2 or more spaces with 1 space
+		// Build the log message in CSV format:
+		$log_message = '"'.$db_method.'","'.$called_by.'","'.addslashes($query).'"';
+		// Store in the query log:
+		Console::log_query($log_message);
 	}
 }
 ?>

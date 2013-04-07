@@ -1,0 +1,8 @@
+<?php
+if ($unchecked_value !== null) {
+	?>
+<input type="hidden" name="<?php echo $name ?>" value="<?php echo $unchecked_value ?>">
+	<?php
+}
+?>
+<input type="checkbox" name="<?php echo $name ?>" id="attr_<?php echo $id ?>" value="<?php echo $checked_value ?>"<?php if ($default_value == $checked_value) { echo ' checked="checked"'; } ?>><label for="attr_<?php echo $id ?>"<?php if (!$is_valid) { ?> class="error"<?php } ?>><?php if ($required) { echo '*'; } echo $label ?></label>

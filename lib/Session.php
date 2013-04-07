@@ -4,37 +4,55 @@
  * 
  * @package Core
  * @author Peter Epp
+ * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
+ * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
+ * @version 2.0
  */
-// TODO add functions to keep track of sessions in database
 class Session {
+	private function __construct() {
+		// Prevent instantiation
+	}
 	/**
 	 * Start a new session
 	 *
+	 * @param $allow_db_sessions Optional - whether or not to allow database session storage, for example to disable it when testing
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function start() {
-		// Initialize DB session storage if applicable
-		SessionStorage::init();
-		// Set the session cookie name and start the session
+	public static function start($allow_db_sessions = true) {
+		session_cache_limiter('none');	// Disables automatic sending of Cache-Control, Pragma and Expires headers
+		register_shutdown_function('session_write_close');
+		if ($allow_db_sessions) {
+			SessionStorage::init();
+		}
 		session_name(SESSION_NAME);
 		session_start();
 		Console::log("        Session started with id: ".session_id());
 		if (DEBUG) {
-			Console::log("        Session contents:\n".print_r(Session::contents(),true));
+			$session_contents = Session::contents();
+			Console::log_var_dump("Session contents",$session_contents);
 		}
 	}
 	/**
-	 * Set specific session id from value provided
+	 * Explicitly set the session ID to a specific value
 	 *
-	 * @param string $sess_id 
+	 * @param string $sessid 
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function set_id($sessid) {
+	public static function set_id($sessid) {
 		if (!empty($sessid)) {
 			session_id($sessid);
 		}
+	}
+	/**
+	 * Return the current session ID
+	 *
+	 * @return string
+	 * @author Peter Epp
+	 */
+	public static function id() {
+		return session_id();
 	}
 	/**
 	 * Destroy the current session
@@ -42,7 +60,7 @@ class Session {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function destroy() {
+	public static function destroy() {
 		session_destroy();
 	}
 	/**
@@ -51,8 +69,8 @@ class Session {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function set_expiry() {
-		Session::set('expires_at',Authenticator::session_expires_at());
+	public static function set_expiry() {
+		Session::set('expires_at',Biscuit::instance()->ModuleAuthenticator()->session_expires_at());
 		if (Request::is_ping_keepalive()) {
 			Console::log("<-- PING! Session extended! -->");
 			Response::ping();
@@ -68,7 +86,7 @@ class Session {
 	 * @param $backup bool Optional - Whether or not to backup the session first
 	 * @param $exceptions array Optional - An array of session variables you don't want to keep when backing up
 	 **/
-	function reset($backup = false,$backup_keepers = null) {
+	public static function reset($backup = false,$backup_keepers = null) {
 		if ($backup) {
 			$session_backup = Session::backup($backup_keepers);
 		}
@@ -85,7 +103,7 @@ class Session {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function close() {
+	public static function close() {
 		session_write_close();
 	}
 	/**
@@ -95,7 +113,7 @@ class Session {
 	 * @author Peter Epp
 	 * @param $keepers array List of session variables you want to backup
 	 **/
-	function backup($keepers = null) {
+	public static function backup($keepers = null) {
 		if (is_array($keepers)) {
 			$backup = array();
 			$session_vars = Session::contents();
@@ -115,7 +133,7 @@ class Session {
 	 * @author Peter Epp
 	 * @param $backup array The array of backed up session variables returned by the flash_backup() function
 	 **/
-	function restore($backup) {
+	public static function restore($backup) {
 		foreach ($backup as $k => $v) {
 			Session::set($k,$v);
 		}
@@ -127,8 +145,8 @@ class Session {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function get($index) {
-		if (!empty($_SESSION[$index])) {
+	public static function get($index) {
+		if (isset($_SESSION[$index])) {
 			return $_SESSION[$index];
 		}
 		return null;
@@ -141,7 +159,7 @@ class Session {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function set($index,$value) {
+	public static function set($index,$value) {
 		$_SESSION[$index] = $value;
 	}
 	/**
@@ -151,8 +169,10 @@ class Session {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function unset_var($index) {
-		unset($_SESSION[$index]);
+	public static function unset_var($index) {
+		if (isset($_SESSION) && isset($_SESSION[$index])) {
+			unset($_SESSION[$index]);
+		}
 	}
 	/**
 	 * Determine if a session variable exists
@@ -162,8 +182,8 @@ class Session {
 	 * @author Peter Epp
 	 */
 	
-	function var_exists($index) {
-		return (!empty($_SESSION[$index]));
+	public static function var_exists($index) {
+		return (isset($_SESSION[$index]));
 	}
 	/**
 	* Store a value in the session "flash" array with a specified index
@@ -173,8 +193,8 @@ class Session {
 	* @param $index string An associative array index name in which to store the value
 	* @param $content mixed The value to store. This can be any type of variable.
 	**/
-	function flash($index,$content) {
-		if (!empty($_SESSION['flash'][$index])) {
+	public static function flash($index,$content) {
+		if (isset($_SESSION['flash'][$index])) {
 			// If a flash var with the specified name already exists, add it to the exsisting one.
 			if (!is_array($_SESSION['flash'][$index])) {
 				// If the flash var is not already an array, make it into one
@@ -193,7 +213,7 @@ class Session {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function flash_unset($index) {
+	public static function flash_unset($index) {
 		unset($_SESSION['flash'][$index]);
 	}
 	/**
@@ -203,8 +223,30 @@ class Session {
 	 * @return mixed
 	 * @author Peter Epp
 	 */
-	function flash_get($index) {
-		return $_SESSION['flash'][$index];
+	public static function flash_get($index) {
+		if (isset($_SESSION['flash']) && isset($_SESSION['flash'][$index])) {
+			return $_SESSION['flash'][$index];
+		}
+		return null;
+	}
+	/**
+	 * Whether or not flash vars exist
+	 *
+	 * @return bool
+	 * @author Peter Epp
+	 */
+	public static function has_flash_vars() {
+		$flash_vars = Session::get('flash');
+		return ($flash_vars !== null);
+	}
+	/**
+	 * Whether or not flash vars were just cleared at the end of the last request
+	 *
+	 * @return bool
+	 * @author Peter Epp
+	 */
+	public static function flash_vars_just_cleared() {
+		return Session::get('flash_vars_just_cleared');
 	}
 	/**
 	* Dump out the contents of a session variable with a specified index in HTML format
@@ -213,7 +255,7 @@ class Session {
 	* @author Peter Epp
 	* @param $index string The associative array index of the desired session variable
 	**/
-	function flash_html_dump($index) {
+	public static function flash_html_dump($index) {
 		if (is_array($_SESSION['flash'][$index])) {
 			return implode('<br>',$_SESSION['flash'][$index]);
 		}
@@ -228,8 +270,8 @@ class Session {
 	* @author Peter Epp
 	* @param $index string The associate array index of the desired session variable
 	**/
-	function flash_isset($index) {
-		return !empty($_SESSION['flash'][$index]);
+	public static function flash_isset($index) {
+		return isset($_SESSION['flash'][$index]);
 	}
 	/**
 	* Clear a specified session variable
@@ -238,8 +280,14 @@ class Session {
 	* @author Peter Epp
 	* @param $index string The associative array index of the desired session variable
 	**/
-	function flash_empty() {
-		unset($_SESSION['flash']);
+	public static function flash_empty() {
+		$flash_vars = Session::get('flash');
+		if ($flash_vars !== null) {
+			Session::set('flash_vars_just_cleared',true);
+		} else {
+			Session::unset_var('flash_vars_just_cleared');
+		}
+		Session::unset_var('flash');
 	}
 	/**
 	 * Whether or not a given message is already in the session flash variable at a given index
@@ -249,7 +297,7 @@ class Session {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function already_flashed($index,$message) {
+	public static function already_flashed($index,$message) {
 		$var = Session::flash_get($index);
 		if (is_array($var)) {
 			return (in_array($message,$var));
@@ -263,11 +311,14 @@ class Session {
 	 * @return bool True or false on normal requests, void on ping requests
 	 * @author Peter Epp
 	 */
-	function is_expired() {
-		if (!Authenticator::user_is_logged_in()) {	// No-one logged in
+	public static function is_expired() {
+		if (!Biscuit::instance()->ModuleAuthenticator()->user_is_logged_in()) {	// No-one logged in
 			return true;
 		}
-		if ($_SESSION['expires_at'] < mktime()) {
+		if (SERVER_TYPE == 'LOCAL_DEV') {
+			// For local dev machine, extend the session so it continues infinitely.
+			self::set_expiry();
+		} else if ($_SESSION['expires_at'] < time()) {
 			return true;
 		}
 		return false;
@@ -278,7 +329,7 @@ class Session {
 	 * @return array Contents of $_SESSION
 	 * @author Peter Epp
 	 */
-	function contents() {
+	public static function contents() {
 		return $_SESSION;
 	}
 	/**
@@ -288,7 +339,7 @@ class Session {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	function decode($data_str) {
+	public static function decode($data_str) {
 		$vars=preg_split('/([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)\|/',$data_str,-1,PREG_SPLIT_NO_EMPTY | PREG_SPLIT_DELIM_CAPTURE);
 		for($i=0; $vars[$i]; $i++) {
 			$result[$vars[$i++]]=unserialize($vars[$i]);     

@@ -2,17 +2,23 @@
 /**
  * A class for dealing with common address (as in mailing or street address) information and formatting
  *
- * @package default
+ * @package Core
  * @author Peter Epp
+ * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
+ * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
+ * @version 2.0
  */
 class Address {
+	private function __construct() {
+		// Prevent instantiation
+	}
 	/**
 	 * Return an associative array of all Canadian provinces with the 2-letter abbreviations as the keys and full province names as the values
 	 *
 	 * @return array
 	 * @author Peter Epp
 	 */
-	function provinces() {
+	public static function provinces() {
 		return array(
 			'AB' => "Alberta",
 			'BC' => "British Columbia",
@@ -36,7 +42,7 @@ class Address {
 	 * @return string The full province name
 	 * @author Peter Epp
 	 */
-	function province($prov_code) {
+	public static function province($prov_code) {
 		$provinces = Address::provinces();
 		return $provinces[$prov_code];
 	}

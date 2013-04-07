@@ -1,0 +1,7 @@
+<label for="attr_<?php echo $id ?>"<?php if (!$is_valid) { ?> class="error"<?php } ?>><?php if ($required) { echo '*'; } echo $label ?></label>
+<?php echo $calendar->render_date_field($name,array(
+	"default_date" => $default_value,
+	"field_id" => "attr_".$id,
+	"css_class" => "text".((!$is_valid) ? ' error' : '')
+	));
+?>

@@ -1,0 +1,23 @@
+<label for="attr_<?php echo $id ?>"<?php if (!$is_valid) { ?> class="error"<?php } ?>><?php if ($required) { echo '*'; } echo $label ?></label>
+<input type="file" class="file<?php if (!$is_valid) { ?> error<?php } ?>" name="<?php echo $name ?>" id="attr_<?php echo $id ?>"<?php if (!empty($size)) { echo $size; } ?> value="<?php echo $default_value ?>">
+<?php
+if (!empty($upload_rules)) {
+	echo '<br>'.$upload_rules;
+}
+if (!empty($finfo)) {
+	?><br>
+	<span class="small">
+		<label>Current File: </label>
+		<a href="<?php echo $finfo['download_url'] ;?>"><?php echo $finfo['file_name']; ?></a> <span class="minor">(<?php echo  $finfo['size'] ?>, <?php echo  $finfo['date'] ?>)</span>
+	</span>
+	<?php
+	if (!$required) {
+		?>
+	<br>
+	<input type="checkbox" name="remove_<?php echo $id ?>" id="remove_<?php echo $id ?>" value="1"><label for="remove_<?php echo $id ?>">Remove File</label>
+		<?php
+	}
+	?>
+	<?php
+}
+?>

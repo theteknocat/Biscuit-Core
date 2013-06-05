@@ -7,7 +7,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: file_upload.php 14801 2013-03-27 20:14:53Z teknocat $
+ * @version 2.0 $Id: file_upload.php 14805 2013-05-09 19:40:42Z teknocat $
  **/
 class MultiFileUpload {
 
@@ -166,7 +166,7 @@ class MultiFileUpload {
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 2.0 $Id: file_upload.php 14801 2013-03-27 20:14:53Z teknocat $
+ * @version 2.0 $Id: file_upload.php 14805 2013-05-09 19:40:42Z teknocat $
  */
 class FileUpload {
 	/**
@@ -181,6 +181,22 @@ class FileUpload {
 	 * unsuccessful upload, error occurred
 	 */
 	const UPLOAD_ERROR = 2;
+	/**
+	 * Overwrite existing
+	 */
+	const OVERWRITE_EXISTING = true;
+	/**
+	 * Overwrite existing
+	 */
+	const DONT_OVERWRITE_EXISTING = false;
+	/**
+	 * Bypass security checks
+	 */
+	const BYPASS_SECURITY_CHECKS = true;
+	/**
+	 * Don't bypass security checks
+	 */
+	const DONT_BYPASS_SECURITY_CHECKS = false;
 	/**
 	 * Status of the FileUpload object
 	 * 
@@ -237,6 +253,16 @@ class FileUpload {
 	 * @var bool
 	 */
 	private $_auto_process_images = true;
+	/**
+	 * Which function to use for moving the uploaded file
+	 * @var string
+	 */
+	private $_move_function = 'move_uploaded_file';
+	/**
+	 * Function to use to check file existence
+	 * @var string
+	 */
+	private $_file_exists_function = 'is_uploaded_file';
 
 	/**
 	 * Handle a file upload.
@@ -254,7 +280,7 @@ class FileUpload {
 	 * @param string $upload_dir	Required. File upload directory relative to the web root (ie. "/images/photos").  If the directory doesn't exist, it will be created
 	 * @param bool $overwrite_existing Optional. Whether or not to overwrite existing file. Defaults to false.
 	 */
-	public function __construct($uploaded_file, $upload_dir, $overwrite_existing = false) {
+	public function __construct($uploaded_file, $upload_dir, $overwrite_existing = false, $bypass_security_checks = false) {
 		if (empty($uploaded_file)) {
 			$this->error(__("No uploaded file found!"));
 			return;
@@ -264,10 +290,16 @@ class FileUpload {
 			$this->error(__("FileUpload expects only a single file. Use MultiFileUpload for multiple files"), 2);
 			return;
 		}
+		Console::log_var_dump('Uploaded file', $uploaded_file);
 
 		$this->uploaded_file = $uploaded_file;
 
 		$this->overwrite_existing = $overwrite_existing;
+
+		if ($bypass_security_checks) {
+			$this->_move_function = 'rename';
+			$this->_file_exists_function = 'file_exists';
+		}
 
 		$this->set_file_error($this->uploaded_file);
 
@@ -281,7 +313,7 @@ class FileUpload {
 			return;
 		}		
 
-		if (!is_uploaded_file($this->uploaded_file['tmp_name'])) {
+		if (!call_user_func_array($this->_file_exists_function, array($this->uploaded_file['tmp_name']))) {
 			$this->error(__("No file was uploaded"));
 			return;
 		}
@@ -306,8 +338,8 @@ class FileUpload {
 		Console::log("                        Temporary file: ".$full_temp_file_path);
 		$full_dest_file_path = $this->upload_dir."/".$this->file_name;
 		Console::log("                        Final file:".$full_dest_file_path);
-		
-		if (!move_uploaded_file($this->uploaded_file['tmp_name'], $full_temp_file_path)) {	// Failure to move file to destination folder
+
+		if (!call_user_func_array($this->_move_function, array($this->uploaded_file['tmp_name'], $full_temp_file_path))) {	// Failure to move file to destination folder
 			@unlink($this->uploaded_file['tmp_name']);	// Make sure temp file is deleted
 			// Set error message and status
 			$this->error(sprintf(__("Failed to move uploaded file (%s) to destination folder"),$this->file_name), 2);
@@ -555,7 +587,7 @@ class FileUpload {
 	 * @return boolean
 	 */
 	public function no_file_sent() {
-		return (!$this->_image_processing_error && (!isset($this->uploaded_file) || $this->uploaded_file['error'] == 4 || !is_uploaded_file($this->uploaded_file['tmp_name'])));
+		return (!$this->_image_processing_error && (!isset($this->uploaded_file) || $this->uploaded_file['error'] == 4 || !call_user_func_array($this->_file_exists_function, array($this->uploaded_file['tmp_name']))));
 	}
 	
 	/**

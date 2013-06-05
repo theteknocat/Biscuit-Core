@@ -6,7 +6,7 @@
  * @author Peter Epp
  * @copyright Copyright (c) 2009 Peter Epp (http://teknocat.org)
  * @license GNU Lesser General Public License (http://www.gnu.org/licenses/lgpl.html)
- * @version 1.0 $Id: fragment_cache_database_store.php 14778 2013-01-15 05:32:34Z teknocat $
+ * @version 1.0 $Id: fragment_cache_database_store.php 14802 2013-05-07 20:03:38Z teknocat $
  */
 class FragmentCacheDatabaseStore extends FragmentCacheStore {
 	/**
@@ -72,7 +72,7 @@ class FragmentCacheDatabaseStore extends FragmentCacheStore {
 	 * @return void
 	 * @author Peter Epp
 	 */
-	public function empty_all() {
+	public static function empty_all() {
 		DB::query("DELETE FROM `cache_fragment`");
 	}
 	/**
